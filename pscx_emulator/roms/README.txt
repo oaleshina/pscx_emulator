@@ -1,0 +1,1 @@
+Put the BIOS in the pscx_emulator/roms folder
