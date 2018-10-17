@@ -39,6 +39,7 @@ Bios::BiosState Bios::loadBios(std::string path)
 
 	if (m_data.size() != biosSize)
 		return BIOS_STATE_INVALID_BIOS_SIZE;
+	return BIOS_STATE_SUCCESS;
 }
 
 uint32_t Bios::load32(uint32_t offset)

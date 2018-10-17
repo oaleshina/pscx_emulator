@@ -1,15 +1,4 @@
 ﻿  pscx_bios.cpp
 c:\users\lera\documents\cppalesina\pscx_emulator\pscx_emulator\pscx_bios.h(34): warning C4800: uint32_t: принудительно задано логическое значение "true" или "false" (предупреждение о производительности)
-  pscx_interconnect.cpp
-c:\users\lera\documents\cppalesina\pscx_emulator\pscx_emulator\pscx_bios.h(34): warning C4800: uint32_t: принудительно задано логическое значение "true" или "false" (предупреждение о производительности)
-  pscx_cpu.cpp
-c:\users\lera\documents\cppalesina\pscx_emulator\pscx_emulator\pscx_bios.h(34): warning C4800: uint32_t: принудительно задано логическое значение "true" или "false" (предупреждение о производительности)
-c:\users\lera\documents\cppalesina\pscx_emulator\pscx_emulator\pscx_cpu.cpp(104): warning C4002: слишком много фактических параметров для макроопределения "assert"
-c:\users\lera\documents\cppalesina\pscx_emulator\pscx_emulator\pscx_cpu.cpp(110): warning C4002: слишком много фактических параметров для макроопределения "assert"
-  pscx_main.cpp
-c:\users\lera\documents\cppalesina\pscx_emulator\pscx_emulator\pscx_bios.h(34): warning C4800: uint32_t: принудительно задано логическое значение "true" или "false" (предупреждение о производительности)
-  pscx_instruction.cpp
-c:\users\lera\documents\cppalesina\pscx_emulator\pscx_emulator\pscx_bios.h(34): warning C4800: uint32_t: принудительно задано логическое значение "true" или "false" (предупреждение о производительности)
-  Создание кода...
   pscx_emulator.vcxproj -> C:\Users\Lera\Documents\CppAlesina\pscx_emulator\x64\Debug\pscx_emulator.exe
   pscx_emulator.vcxproj -> C:\Users\Lera\Documents\CppAlesina\pscx_emulator\x64\Debug\pscx_emulator.pdb (Partial PDB)
