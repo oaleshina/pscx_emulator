@@ -25,6 +25,7 @@ Cpu::InstructionType Cpu::decodeAndExecute(Instruction instruction)
 		// Rust:
 		// 0b001111 => self.op_lui(instruction)
 		//---------------------------------
+		instructionType = opcodeLUI(instruction);
 		break;
 	case /*ORI*/0b001101:
 		instructionType = opcodeORI(instruction);
@@ -60,8 +61,9 @@ Cpu::InstructionType Cpu::decodeAndExecute(Instruction instruction)
 //----------------------------------------------
 Cpu::InstructionType Cpu::runNextInstuction()
 { 
-	// Fixme
-	return INSTRUCTION_TYPE_UNKNOWN;
+	uint32_t loc_pc = m_pc;
+	m_pc = loc_pc + 4;
+	return decodeAndExecute(load32(loc_pc));
 }
 
 //--------------------------------------------------------------
@@ -81,7 +83,10 @@ Cpu::InstructionType Cpu::runNextInstuction()
 //---------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeLUI(Instruction instruction)
 {
-	// Fixme
+	uint32_t i = instruction.getImmediateValue();
+	uint32_t t = instruction.getRegisterTargetIndex();
+	uint32_t v = i << 16;
+	setRegisterValue(t, v);
 	return INSTRUCTION_TYPE_LUI;
 }
 
