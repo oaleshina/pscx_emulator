@@ -22,7 +22,7 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{47DF9237-FA74-4433-AE57-F7A88E9EB1D8}</ProjectGuid>
     <RootNamespace>pscxemulator</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -120,12 +120,18 @@
     <ClCompile Include="pscx_cpu.cpp" />
     <ClCompile Include="pscx_interconnect.cpp" />
     <ClCompile Include="pscx_bios.cpp" />
+    <ClCompile Include="pscx_memory.cpp" />
+    <ClCompile Include="pscx_ram.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pscx_bios.h" />
+    <ClInclude Include="pscx_cachecontrol.h" />
+    <ClInclude Include="pscx_common.h" />
     <ClInclude Include="pscx_cpu.h" />
     <ClInclude Include="pscx_instruction.h" />
     <ClInclude Include="pscx_interconnect.h" />
+    <ClInclude Include="pscx_memory.h" />
+    <ClInclude Include="pscx_ram.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

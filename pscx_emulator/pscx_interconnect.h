@@ -1,18 +1,12 @@
 #pragma once
 
+#include "pscx_common.h"
 #include "pscx_bios.h"
+#include "pscx_ram.h"
+#include "pscx_memory.h"
+#include "pscx_instruction.h"
 
-// Mask array used to strip the region bits of the address. The
-// mask is selected using the 3 MSBs of the address so each entry
-// effectively matches 512 kB of the address space. KSEG2 is not
-// touched since it doesn't share anything with the other regions.
-const uint32_t REGION_MASK[8] =
-{
-	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, // KUSEG: 2048MB
-	0x7fffffff,                                     // KSEG0:  512MB
-	0x1fffffff,                                     // KSEG1:  512MB
-	0xffffffff, 0xffffffff                          // KSEG2: 1024MB
-};
+using namespace pscx_memory;
 
 // Global interconnect
 struct Interconnect
@@ -20,12 +14,16 @@ struct Interconnect
 	Interconnect(Bios bios);
 
 	// Load 32 bit word at 'addr'
-	uint32_t load32(uint32_t addr);
+	Instruction load32(uint32_t addr) const;
 
-	// Store 32 bit word 'val' into 'addr'
-	void store32(uint32_t addr, uint32_t value);
+	// Load byte at 'addr'
+	Instruction load8(uint32_t addr) const;
+
+	void store32(uint32_t addr, uint32_t value); // Store 32 bit word 'val' into 'addr'
+	void store16(uint32_t addr, uint16_t value); // Store 16 bit word 'val' into 'addr'
+	void store8 (uint32_t addr, uint8_t  value); // Store 8 bit word 'val' into 'addr'
 
 	// Basic Input/Output memory
 	Bios m_bios;
-	Range m_range;
+	Ram m_ram;
 };
