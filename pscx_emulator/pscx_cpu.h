@@ -13,14 +13,20 @@ struct Cpu
 	// 0xbfc00000 PC reset value at the beginning of the BIOS
 	Cpu(Interconnect inter) :
 		m_pc(0xbfc00000),
+		m_nextPc(0xbfc00004),
 		m_nextInstruction(0x0), // NOP
 		m_inter(inter),
 		m_sr(0x0),
-		m_load(RegisterIndex(0x0), 0x0)
+		m_load(RegisterIndex(0x0), 0x0),
+		m_branch(false),
+		m_delaySlot(false)
 	{
 		// Reset registers values to 0xdeadbeef
 		memset(m_regs, 0xdeadbeef, sizeof(m_regs));
 		memcpy(m_outRegs, m_regs, sizeof(m_regs));
+
+		m_hi = 0xdeadbeef;
+		m_lo = 0xdeadbeef;
 
 		// $zero is hardwired to 0
 		m_regs[0] = 0x0;
@@ -36,8 +42,10 @@ struct Cpu
 		INSTRUCTION_TYPE_ADDIU,
 		INSTRUCTION_TYPE_J,
 		INSTRUCTION_TYPE_OR,
+		INSTRUCTION_TYPE_AND,
 		INSTRUCTION_TYPE_COP0,
 		INSTRUCTION_TYPE_MTC0,
+		INSTRUCTION_TYPE_MFC0,
 		INSTRUCTION_TYPE_BNE,
 		INSTRUCTION_TYPE_ADDI,
 		INSTRUCTION_TYPE_LW,
@@ -50,9 +58,32 @@ struct Cpu
 		INSTRUCTION_TYPE_JR,
 		INSTRUCTION_TYPE_LB,
 		INSTRUCTION_TYPE_BEQ,
+		INSTRUCTION_TYPE_ADD,
+		INSTRUCTION_TYPE_BGTZ,
+		INSTRUCTION_TYPE_BLEZ,
+		INSTRUCTION_TYPE_LBU,
+		INSTRUCTION_TYPE_JALR,
+		INSTRUCTION_TYPE_BXX,
+		INSTRUCTION_TYPE_SLTI,
+		INSTRUCTION_TYPE_SUBU,
+		INSTRUCTION_TYPE_SRA,
+		INSTRUCTION_TYPE_DIV,
+		INSTRUCTION_TYPE_MFLO,
+		INSTRUCTION_TYPE_SRL,
+		INSTRUCTION_TYPE_SLTIU,
+		INSTRUCTION_TYPE_DIVU,
+		INSTRUCTION_TYPE_MFHI,
+		INSTRUCTION_TYPE_SLT,
+		INSTRUCTION_TYPE_SYSCALL,
+		INSTRUCTION_TYPE_MTLO,
+		INSTRUCTION_TYPE_MTHI,
+		INSTRUCTION_TYPE_RFE,
+		INSTRUCTION_TYPE_LHU,
 		INSTRUCTION_TYPE_CACHE_ISOLATED,
 		INSTRUCTION_TYPE_NOT_IMPLEMENTED, // temporal enum variable for debugging
 		INSTRUCTION_TYPE_UNKNOWN,
+		INSTRUCTION_TYPE_UNALIGNED,
+		INSTRUCTION_TYPE_OVERFLOW,
 		INSTRUCTION_TYPE_COUNT
 	};
 
@@ -73,8 +104,26 @@ private:
 		uint32_t      m_registerValue;
 	};
 
+	// Exception types ( sd stored in the 'CAUSE' register )
+	enum Exception
+	{
+		// System call ( caused by the SYSCALL opcode )
+		EXCEPTION_SYSCALL = 0x8,
+
+		// Arithmetic overflow
+		EXCEPTION_OVERFLOW = 0xc,
+
+		// Address error on load
+		EXCEPTION_LOAD_ADDRESS_ERROR = 0x4,
+
+		// Address error on store
+		EXCEPTION_STORE_ADDRESS_ERROR = 0x5
+	};
+
 	// Special purpose registers
-	uint32_t m_pc; // program counter register
+	uint32_t m_pc; // program counter register: points to the next instruction
+	uint32_t m_nextPc; // next value for PC, used to simulate the branch delay slot
+	uint32_t m_currentPc; // address of the instruction currently being executed. Used for setting the EPC in exceptions
 
 	// General purpose registers
 	// m_regs[0]                     $zero      Always zero
@@ -98,6 +147,18 @@ private:
 	// Cop0 register 12: Status Register
 	uint32_t m_sr;
 
+	// Cop0 register 13: Cause Register
+	uint32_t m_cause;
+
+	// Cop0 register 14: EPC
+	uint32_t m_epc;
+
+	// HI register for division remainder and multiplication high result
+	uint32_t m_hi;
+
+	// LO register for division quotient and multiplication low result
+	uint32_t m_lo;
+
 	// Load initiated by the current instruction
 	RegisterData m_load;
 
@@ -108,11 +169,21 @@ private:
 	// Memory interface
 	Interconnect m_inter;
 
+	// Set by the current instruction if a branch occured and the
+	// next instruction will be in the delay slot
+	bool m_branch;
+
+	// Set if the current instruction executes in the delay slot
+	bool m_delaySlot;
+
 	// Array for storing instructions for logging
 	std::vector<uint32_t> m_debugInstructions;
 
 	// Load 32 bit value from the interconnect
 	Instruction load32(uint32_t addr) const;
+
+	// Load 16 bit value from the memory
+	Instruction load16(uint32_t addr) const;
 
 	// Load 8 bit value from the memory
 	Instruction load8(uint32_t addr) const;
@@ -131,8 +202,10 @@ private:
 	InstructionType opcodeADDIU(const Instruction& instruction); // Add Immediate Unsigned
 	InstructionType opcodeJ    (const Instruction& instruction); // Jump
 	InstructionType opcodeOR   (const Instruction& instruction); // Bitwise Or
+	InstructionType opcodeAND  (const Instruction& instruction); // Bitwise And
 	InstructionType opcodeCOP0 (const Instruction& instruction); // Instruction for coprocessor 0
 	InstructionType opcodeMTC0 (const Instruction& instruction); // Move to coprocessor 0
+	InstructionType opcodeMFC0 (const Instruction& instruction); // Move from coprocessor 0
 	InstructionType opcodeBNE  (const Instruction& instruction); // Branch if not equal
 	InstructionType opcodeADDI (const Instruction& instruction); // Add Immediate ( generates exception if addition overflows )
 	InstructionType opcodeLW   (const Instruction& instruction); // Load word
@@ -145,6 +218,30 @@ private:
 	InstructionType opcodeJR   (const Instruction& instruction); // Jump register
 	InstructionType opcodeLB   (const Instruction& instruction); // Load byte ( signed )
 	InstructionType opcodeBEQ  (const Instruction& instruction); // Branch if equal
+	InstructionType opcodeADD  (const Instruction& instruction); // Add ( generates an exception on signed overflow )
+	InstructionType opcodeBGTZ (const Instruction& instruction); // Branch if greater than zero
+	InstructionType opcodeBLEZ (const Instruction& instruction); // Branch if less than or equal to zero
+	InstructionType opcodeLBU  (const Instruction& instruction); // Load byte unsigned
+	InstructionType opcodeJALR (const Instruction& instruction); // Jump and link register
+	InstructionType opcodeBXX  (const Instruction& instruction); // Various branch instructions: BGEZ, BLTZ, BGEZAL, BLTZAL. Bits [20:16] are used to figure out which one to use
+	InstructionType opcodeSLTI (const Instruction& instruction); // Set if less than immediate
+	InstructionType opcodeSUBU (const Instruction& instruction); // Substract unsigned
+	InstructionType opcodeSRA  (const Instruction& instruction); // Shift right arithmetic
+	InstructionType opcodeDIV  (const Instruction& instruction); // Division ( signed )
+	InstructionType opcodeMFLO (const Instruction& instruction); // Move from LO
+	InstructionType opcodeSRL  (const Instruction& instruction); // Shift right logical
+	InstructionType opcodeSLTIU(const Instruction& instruction); // Set if less than immediate unsigned
+	InstructionType opcodeDIVU (const Instruction& instruction); // Division unsigned
+	InstructionType opcodeSLT  (const Instruction& instruction); // Set on less than ( signed )
+	InstructionType opcodeMFHI (const Instruction& instruction); // Move from HI
+	InstructionType opcodeSYSCALL(const Instruction& instruction); // System call
+	InstructionType opcodeMTLO (const Instruction& instruction); // Move to LO
+	InstructionType opcodeMTHI (const Instruction& instruction); // Move to HI
+	InstructionType opcodeRFE  (const Instruction& instruction); // Return from exception
+	InstructionType opcodeLHU  (const Instruction& instruction); // Load halfword unsigned
+
+	void branch(uint32_t offset);
+	void exception(Exception cause); // Trigger an exception
 
 	uint32_t getRegisterValue(RegisterIndex registerIndex) const;
 	void setRegisterValue(RegisterIndex registerIndex, uint32_t value);

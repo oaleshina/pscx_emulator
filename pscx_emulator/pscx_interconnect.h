@@ -16,6 +16,9 @@ struct Interconnect
 	// Load 32 bit word at 'addr'
 	Instruction load32(uint32_t addr) const;
 
+	// Load 16 bit halfword at 'addr'
+	Instruction load16(uint32_t addr) const;
+
 	// Load byte at 'addr'
 	Instruction load8(uint32_t addr) const;
 

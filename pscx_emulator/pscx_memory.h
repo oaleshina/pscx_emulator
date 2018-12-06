@@ -53,6 +53,9 @@ namespace pscx_memory
 	struct RegisterIndex
 	{
 		RegisterIndex(uint32_t index) : m_index(index) {};
+		uint32_t getRegisterIndex() const { return m_index; }
+
+	private:
 		uint32_t m_index;
 	};
 
@@ -78,4 +81,13 @@ namespace pscx_memory
 
 	// Expansion region 2
 	const Range EXPANSION_2   = Range(0x1f802000, 66);
+
+	// Interrupt Control registers ( status and mask )
+	const Range IRQ_CONTROL   = Range(0x1f801070, 8);
+
+	// Timer registers
+	const Range TIMERS        = Range(0x1f801100, 0x30);
+
+	// Direct Memory Access registers
+	const Range DMA           = Range(0x1f801080, 0x80);
 }

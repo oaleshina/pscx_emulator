@@ -38,8 +38,40 @@ Instruction Interconnect::load32(uint32_t addr) const
 
 	if (EXPANSION_2.contains(targetPeripheralAddress, offset))
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
+
+	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
+	{
+		LOG("IRQ control read 0x" << std::hex << offset);
+		return Instruction(0);
+	}
+
+	if (DMA.contains(targetPeripheralAddress, offset))
+	{
+		LOG("DMA read 0x" << std::hex << targetPeripheralAddress);
+		return Instruction(0);
+	}
 	
 	LOG("Unhandled fetch32 at address 0x" << std::hex << addr);
+	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
+}
+
+Instruction Interconnect::load16(uint32_t addr) const
+{
+	uint32_t targetPeripheralAddress = maskRegion(addr);
+
+	uint32_t offset = 0;
+	if (SPU.contains(targetPeripheralAddress, offset))
+	{
+		LOG("Unhandled read from SPU register 0x" << std::hex << targetPeripheralAddress);
+		return Instruction(0);
+	}
+
+	if (RAM.contains(targetPeripheralAddress, offset))
+	{
+		return Instruction(m_ram.load16(offset));
+	}
+
+	LOG("Unhandled fetch16 at address 0x" << std::hex << addr);
 	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
 }
 
@@ -48,6 +80,9 @@ Instruction Interconnect::load8(uint32_t addr) const
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
 	uint32_t offset = 0;
+	if (RAM.contains(targetPeripheralAddress, offset))
+		return Instruction(m_ram.load8(offset));
+
 	if (BIOS.contains(targetPeripheralAddress, offset))
 		return Instruction(m_bios.load8(offset));
 
@@ -57,7 +92,7 @@ Instruction Interconnect::load8(uint32_t addr) const
 		return Instruction(0xff);
 	}
 
-	LOG("Unhandled load8 at address 0x" << std::hex << addr);
+	LOG("Unhandled fetch8 at address 0x" << std::hex << addr);
 	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
 }
 
@@ -100,11 +135,13 @@ void Interconnect::store32(uint32_t addr, uint32_t value)
 			LOG("Unhandled write to MEM_CONTROL register");
 			return;
 		}
+		return;
 	}
 
 	if (RAM.contains(targetPeripheralAddress, offset))
 	{
 		m_ram.store32(offset, value);
+		return;
 	}
 
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
@@ -116,6 +153,18 @@ void Interconnect::store32(uint32_t addr, uint32_t value)
 	if (CACHE_CONTROL.contains(targetPeripheralAddress, offset))
 	{
 		LOG("Ignore store to CACHE_CONTROL register for now");
+		return;
+	}
+
+	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
+	{
+		LOG("IRQ control 0x" << std::hex << offset << " 0x" << value);
+		return;
+	}
+
+	if (DMA.contains(targetPeripheralAddress, offset))
+	{
+		LOG("DMA write 0x" << std::hex << targetPeripheralAddress << " 0x" << value);
 		return;
 	}
 
@@ -135,7 +184,19 @@ void Interconnect::store16(uint32_t addr, uint16_t value)
 	uint32_t offset = 0;
 	if (SPU.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Unaligned write to SPU register " << offset);
+		LOG("Unaligned write to SPU register 0x" << std::hex << offset);
+		return;
+	}
+	
+	if (TIMERS.contains(targetPeripheralAddress, offset))
+	{
+		LOG("Unhandled write to timer register 0x" << std::hex << offset);
+		return;
+	}
+
+	if (RAM.contains(targetPeripheralAddress, offset))
+	{
+		m_ram.store16(offset, value);
 		return;
 	}
 
@@ -147,9 +208,15 @@ void Interconnect::store8(uint32_t addr, uint8_t value)
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
 	uint32_t offset = 0;
+	if (RAM.contains(targetPeripheralAddress, offset))
+	{
+		m_ram.store8(offset, value);
+		return;
+	}
+
 	if (EXPANSION_2.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Unaligned write to expansion 2 register " << offset);
+		LOG("Unaligned write to expansion 2 register 0x" << std::hex << offset);
 		return;
 	}
 
