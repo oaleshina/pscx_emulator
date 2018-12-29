@@ -23,28 +23,12 @@ uint8_t Ram::load8(uint32_t offset) const
 	return m_data[offset];
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the store32 function.
-// It should store a value into the RAM memory.
-//
-// Rust:
-// pub fn store32(&mut self, offset: u32, val: u32) {
-//     let offset = offset as usize;
-//
-//     let b0 = val as u8;
-//     let b1 = (val >> 8)  as u8;
-//     let b2 = (val >> 16) as u8;
-//     let b3 = (val >> 24) as u8;
-//
-//     self.data[offset + 0] = b0;
-//     self.data[offset + 1] = b1;
-//     self.data[offset + 2] = b2;
-//     self.data[offset + 3] = b3;
-// }
-//--------------------------------------------------------------
 void Ram::store32(uint32_t offset, uint32_t value)
 {
-	// Fixme
+	m_data[offset + 0] = (uint8_t) value;
+	m_data[offset + 1] = (uint8_t)(value >> 8);
+	m_data[offset + 2] = (uint8_t)(value >> 16);
+	m_data[offset + 3] = (uint8_t)(value >> 24);
 }
 
 void Ram::store16(uint32_t offset, uint16_t value)
@@ -53,16 +37,7 @@ void Ram::store16(uint32_t offset, uint16_t value)
 	m_data[offset + 1] = (uint8_t)(value >> 8);
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the store8 function.
-// It should store a value into the RAM memory.
-//
-// Rust:
-// pub fn store8(&mut self, offset: u32, val: u8) {
-//     self.data[offset as usize] = val;
-// }
-//--------------------------------------------------------------
 void Ram::store8(uint32_t offset, uint8_t value)
 {
-	// Fixme
+	m_data[offset] = value;
 }

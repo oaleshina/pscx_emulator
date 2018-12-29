@@ -3,6 +3,8 @@
 #include "pscx_common.h"
 #include "pscx_bios.h"
 #include "pscx_ram.h"
+#include "pscx_dma.h"
+#include "pscx_gpu.h"
 #include "pscx_memory.h"
 #include "pscx_instruction.h"
 
@@ -26,7 +28,16 @@ struct Interconnect
 	void store16(uint32_t addr, uint16_t value); // Store 16 bit word 'val' into 'addr'
 	void store8 (uint32_t addr, uint8_t  value); // Store 8 bit word 'val' into 'addr'
 
+	uint32_t getDmaRegister(uint32_t offset) const; // DMA register read
+	void setDmaRegister(uint32_t offset, uint32_t value); // DMA register write
+
+	void doDma(Port port); // Execute DMA transfer for a port
+	void doDmaBlock(Port port);
+	void doDmaLinkedList(Port port); // Emulate DMA transfer for linked list synchronization mode
+
 	// Basic Input/Output memory
 	Bios m_bios;
 	Ram m_ram;
+	Dma m_dma; // DMA registers
+	Gpu m_gpu;
 };

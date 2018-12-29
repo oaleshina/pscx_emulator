@@ -26,24 +26,14 @@ namespace pscx_memory
 			m_length(length)
 		{}
 
-		//-------------------------------------------------------
-		// TODO: to implement the contains function.
-		// It should return 'offset' if addr is contained in the interval.
-		//
-		// Rust:
-		// pub fn contains(self, addr: u32) -> Option<u32> {
-		//     let Range(start, length) = self;
-		//
-		//     if addr >= start && addr < start + length {
-		//         Some(addr - start)
-		//     } else {
-		//         None
-		//     }
-		// }
-		//---------------------------------------------------------
+		// Return 'offset' if addr is contained in the interval
 		bool contains(uint32_t addr, uint32_t &offset) const
 		{
-			// Fixme
+			if (addr >= m_start && addr < m_start + m_length)
+			{
+				offset = addr - m_start;
+				return true;
+			}
 			return false;
 		}
 
@@ -90,4 +80,11 @@ namespace pscx_memory
 
 	// Direct Memory Access registers
 	const Range DMA           = Range(0x1f801080, 0x80);
+
+	// GPU registers
+	const Range GPU           = Range(0x1f801810, 8);
+
+	// CDROM controller
+	const Range CDROM         = Range(0x1f801800, 0x4);
+
 }

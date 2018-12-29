@@ -113,16 +113,39 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 		case/*MTHI*/0b010001:
 			instructionType = opcodeMTHI(instruction);
 			break;
-		default:
-			LOG("Unhandled sub instruction 0x" << std::hex << instruction.getSubfunctionInstructionCode());
+		case/*SLLV*/0b000100:
+			instructionType = opcodeSLLV(instruction);
+			break;
+		case/*NOR*/0b100111:
+			instructionType = opcodeNOR(instruction);
+			break;
+		case/*SRAV*/0b000111:
+			instructionType = opcodeSRAV(instruction);
+			break;
+		case/*SRLV*/0b000110:
+			instructionType = opcodeSRLV(instruction);
+			break;
+		case/*MULTU*/0b011001:
+			instructionType = opcodeMULTU(instruction);
+			break;
+		case/*XOR*/0b100110:
+			instructionType = opcodeXOR(instruction);
+			break;
+		case/*BREAK*/0b001101:
+			instructionType = opcodeBREAK(instruction);
+			break;
+		case/*MULT*/0b011000:
+			instructionType = opcodeMULT(instruction);
+			break;
+		case/*SUB*/0b100010:
+			instructionType = opcodeSUB(instruction);
+			break;
+		default/*Illegal instruction*/:
+			instructionType = opcodeIllegal(instruction);
 		}
 		break;
 	case /*LUI*/0b001111:
-		//---------------------------------
-		// TODO : call LUI instruction.
-		// Rust:
-		// 0b001111 => self.op_lui(instruction)
-		//---------------------------------
+		instructionType = opcodeLUI(instruction);
 		break;
 	case /*ORI*/0b001101:
 		instructionType = opcodeORI(instruction);
@@ -187,88 +210,117 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 	case/*LHU*/0b100101:
 		instructionType = opcodeLHU(instruction);
 		break;
-	default:
-		LOG("Unhandled instruction 0x" << std::hex << instruction.getInstructionCode());
+	case/*LH*/0b100001:
+		instructionType = opcodeLH(instruction);
+		break;
+	case/*XORI*/0b001110:
+		instructionType = opcodeXORI(instruction);
+		break;
+	case/*COP1*/0b010001:
+		instructionType = opcodeCOP1(instruction);
+		break;
+	case/*COP2*/0b010010:
+		instructionType = opcodeCOP2(instruction);
+		break;
+	case/*COP3*/0b010011:
+		instructionType = opcodeCOP3(instruction);
+		break;
+	case/*LWL*/0b100010:
+		instructionType = opcodeLWL(instruction);
+		break;
+	case/*LWR*/0b100110:
+		instructionType = opcodeLWR(instruction);
+		break;
+	case/*SWL*/0b101010:
+		instructionType = opcodeSWL(instruction);
+		break;
+	case/*SWR*/0b101110:
+		instructionType = opcodeSWR(instruction);
+		break;
+	case/*LWC0*/0b110000:
+		instructionType = opcodeLWC0(instruction);
+		break;
+	case/*LWC1*/0b110001:
+		instructionType = opcodeLWC1(instruction);
+		break;
+	case/*LWC2*/0b110010:
+		instructionType = opcodeLWC2(instruction);
+		break;
+	case/*LWC3*/0b110011:
+		instructionType = opcodeLWC3(instruction);
+		break;
+	case/*SWC0*/0b111000:
+		instructionType = opcodeSWC0(instruction);
+		break;
+	case/*SWC1*/0b111001:
+		instructionType = opcodeSWC1(instruction);
+		break;
+	case/*SWC2*/0b111010:
+		instructionType = opcodeSWC2(instruction);
+		break;
+	case/*SWC3*/0b111011:
+		instructionType = opcodeSWC3(instruction);
+		break;
+	default/*Illegal instruction*/:
+		instructionType = opcodeIllegal(instruction);
 	}
 
-	m_debugInstructions.push_back(instruction.getInstructionOpcode());
+	//m_debugInstructions.push_back(instruction.getInstructionOpcode());
 	return instructionType;
 }
 
-//----------------------------------------------
-// TODO : to implement the runNextInstruction function.
-// It should fetch an instruction at program counter (PC) register,
-// increment PC to point to the next instruction and
-// execute instruction.
-// 
-// Rust:
-// pub fn run_next instruction(&mut self) {
-//     Save the address of the current instruction to save 'EPC' in the case of exception
-//     self.current_pc = self.pc;
-//
-//     if (self.current_pc % 4 != 0) {
-//         self.exception(Exception::LoadAddressError);
-//         ret;
-//     }
-//
-//     Fetch instruction at PC
-//     let instruction = Instruction(self.load32(self.pc));
-//
-//     if (next_instruction.status == UNALIGNED_ACCESS ||
-//         next_instruction.status == UNHANDLED_FETCH)
-//         ret INSTRUCTION_TYPE_UNKNOWN;
-//
-//     Increment PC to point to the next instruction.
-//     self.pc = self.next_pc;
-//     self.next_pc = self.next_pc.wrapping_add(4);
-//
-//     If the last instruction was a branch then we're in the delay slot
-//     self.delay_slot = self.branch;
-//     self.branch = false;
-//
-//     if (next_instruction.status == NOT_IMPLEMENTED)
-//         ret INSTRUCTION_TYPE_NOT_IMPLEMENTED;
-//
-//     Execute the pending load ( if any, otherwise it will load $zero which is a NOP )
-//     setRegisterValue works only on 'out_regs' so this operation won't be visible by the next instruction
-//     let (reg, val) = self.load;
-//
-//     self.set_reg(reg, val);
-//
-//     We reset the load to target register 0 for the next instruction
-//     self.load = RegisterData(RegisterIndex(0), 0); 
-//
-//     Execute any pending load
-//     self.decode_and_execute(instruction);
-//
-//     Copy the output registers as input for the next instruction
-//     self.regs = self.out_regs
-// }
-//----------------------------------------------
 Cpu::InstructionType Cpu::runNextInstuction()
 {
-	// Fixme
-	return INSTRUCTION_TYPE_UNKNOWN;
+	// Save the address of the current instruction to save in 'EPC' in the case of an exception.
+	m_currentPc = m_pc;
+
+	if (m_currentPc % 4 != 0)
+	{
+		// PC is not correctly aligned !
+		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
+		return INSTRUCTION_TYPE_UNALIGNED;
+	}
+
+	// Fetch instruction at PC
+	Instruction instruction = load32(m_pc);
+	Instruction::InstructionStatus instructionStatus = instruction.getInstructionStatus();
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return INSTRUCTION_TYPE_UNKNOWN;
+
+	// Increment next PC to point to the next instruction.
+	// All instructions are 32 bit long.
+	m_pc = m_nextPc;
+	m_nextPc += 4;
+
+	// If the last instruction was a branch then we're in the delay slot
+	m_delaySlot = m_branch;
+	m_branch = false;
+
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+	// Execute the pending load ( if any, otherwise it will load $zero which is a NOP )
+	// setRegisterValue works only on m_outRegs so this operation won't be visible by the next instruction
+	RegisterData load = m_load;
+	setRegisterValue(load.m_registerIndex, load.m_registerValue);
+
+	// We reset the load to target register 0 for the next instruction
+	m_load = RegisterData(RegisterIndex(0x0), 0x0);
+
+	// Execute any pending load
+	InstructionType instructionType = decodeAndExecute(instruction);
+
+	// Copy the output registers as input for the next instruction
+	memcpy(m_regs, m_outRegs, sizeof(m_regs));
+
+	return instructionType;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Load Upper Immediate function (LUI).
-// It should load the immediate value into the high 16 bits of the target register.
-//
-// Rust:
-// fn op_lui(&mut self, instruction: Instruction) {
-//     let i = instruction.imm();  load immediate value
-//     let t = instruction.t();    load target register
-//
-//     Low 16 bits are set to 0
-//     let v = i << 16;
-//
-//     self.set_reg(t, v);
-// }
-//---------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeLUI(const Instruction& instruction)
 {
-	// Fixme
+	// Low 16 bits are set to 0
+	setRegisterValue(instruction.getRegisterTargetIndex(), instruction.getImmediateValue() << 16);
 	return INSTRUCTION_TYPE_LUI;
 }
 
@@ -306,63 +358,22 @@ Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
 	return INSTRUCTION_TYPE_SW;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Shift Left Logical function (SLL).
-// It should do left shift of target register value.
-//
-// Rust:
-// fn op_sll(&mut self, instruction: Instruction) {
-//     let i = instruction.shift(); load shift immediate value
-//     let t = instruction.t();     load target register
-//     let d = instruction.d();     load destination register
-//
-//     let v = self.reg(t) << i;
-//
-//     self.set_reg(d, v);
-// }
-//---------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSLL(const Instruction& instruction)
 {
-	// Fixme
+	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(instruction.getRegisterTargetIndex()) << instruction.getShiftImmediateValue());
 	return INSTRUCTION_TYPE_SLL;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Add Immediate Unsigned function (ADDIU).
-// It should add source register value and sign extended immediate value.
-//
-// Rust:
-// fn op_addiu(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se(); load sign extended immediate value
-//     let t = instruction.t();      load target register
-//     let s = instruction.s();      load source register
-//
-//     let v = self.reg(s).wrapping_add(i);
-//     self.set_reg(t, v);
-// }
-//----------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeADDIU(const Instruction& instruction)
 {
-	// Fixme
+	setRegisterValue(instruction.getRegisterTargetIndex(), getRegisterValue(instruction.getRegisterSourceIndex()) + instruction.getSignExtendedImmediateValue());
 	return INSTRUCTION_TYPE_ADDIU;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Jump function (J).
-// It should change the value of the PC register and perform jumping
-// of the CPU execution pipeline to some other location in the memory.
-//
-// Rust:
-// fn op_j(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_jump(); load jump target value
-//
-//     self.next_pc = (self.pc & 0xf0000000) | (i << 2);
-//     self.branch = true;
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJ(const Instruction& instruction)
 {
-	// Fixme
+	m_nextPc = (m_pc & 0xf0000000) | (instruction.getJumpTargetValue() << 2);
+	m_branch = true;
 	return INSTRUCTION_TYPE_J;
 }
 
@@ -372,24 +383,9 @@ Cpu::InstructionType Cpu::opcodeOR(const Instruction& instruction)
 	return INSTRUCTION_TYPE_OR;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Bitwise And function (AND).
-// It should do bitwise and operation.
-//
-// Rust:
-// fn op_and(&mut self, instruction: Instruction) {
-//     let d = instruction.d();
-//     let s = instruction.s();
-//     let t = instruction.t();
-//
-//     let v = self.reg(s) & self.reg(t);
-//
-//     self.set_reg(d, v);
-// }
-//---------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeAND(const Instruction& instruction)
 {
-	// Fixme
+	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(instruction.getRegisterSourceIndex()) & getRegisterValue(instruction.getRegisterTargetIndex()));
 	return INSTRUCTION_TYPE_AND;
 }
 
@@ -456,28 +452,29 @@ Cpu::InstructionType Cpu::opcodeMTC0(const Instruction& instruction)
 	return INSTRUCTION_TYPE_MTC0;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Move From Coprocessor 0 function (MFC0)
-// It should move instruction register value from coprocessor 0.
-//
-// Rust:
-// fn op_mfc0(&mut self, instruction: Instruction) {
-//     let cpu_r = instruction.t();
-//     let cop_r = instruction.d().getRegisterIndex();
-//
-//     let v = match cop_r {
-//         12 => self.sr,
-//         13 => self.cause,
-//         14 => self.epc,
-//         -  => panic!("Unhandled read from cop0r{}", cop0_r),
-//     };
-//
-//     self.load = (cpu_r, v);
-// }
-//----------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeMFC0(const Instruction& instruction)
 {
-	// Fixme
+	uint32_t cop0Register     = instruction.getRegisterDestinationIndex().getRegisterIndex();
+	RegisterIndex cpuRegister = instruction.getRegisterTargetIndex();
+
+	switch (cop0Register)
+	{
+	case 12:
+		// Load data only from $cop0_12 register
+		m_load = RegisterData(cpuRegister, m_sr);
+		break;
+	// $cop0_13 CAUSE
+	case 13:
+		m_load = RegisterData(cpuRegister, m_cause);
+		break;
+	// $cop0_14 EPC
+	case 14:
+		m_load = RegisterData(cpuRegister, m_epc);
+		break;
+	default:
+		LOG("Unhandled read from cop0Register 0x" << std::hex << cop0Register);
+	}
+
 	return INSTRUCTION_TYPE_MFC0;
 }
 
@@ -490,26 +487,11 @@ void Cpu::branch(uint32_t offset)
 	m_branch = true;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Branch If Not Equal function (BNE).
-// It should compare values that are stored in source and tagret
-// registers and if they are unequal, immediate value should be 
-// added/substracted from the PC register.
-//
-// Rust:
-// fn op_bne(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se(); load sign extended immediate value
-//     let s = instruction.s();      load source register
-//     let t = instruction.t();      load target register
-//
-//     if self.reg(s) != self.reg(t) {
-//         self.branch(i);
-//     }
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeBNE(const Instruction& instruction)
 {
-	// Fixme
+	if (getRegisterValue(instruction.getRegisterSourceIndex()) != getRegisterValue(instruction.getRegisterTargetIndex()))
+		branch(instruction.getSignExtendedImmediateValue());
+
 	return INSTRUCTION_TYPE_BNE;
 }
 
@@ -535,45 +517,41 @@ Cpu::InstructionType Cpu::opcodeADDI(const Instruction& instruction)
 	return INSTRUCTION_TYPE_ADDI;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Load Word function (LW).
-// It should load 32 bit instruction from the memory.
-//
-// Rust:
-// op_lw(&mut self, instruction: Instruction) {
-//     if self.sr & 0x10000 != 0 {
-//         Cache is isolated, ignore write
-//         LOG("Ignoring load while cache is isolated");
-//         ret CACHE_ISOLATED;
-//     }
-//
-//     let i = instruction.imm_se(); load sign extended immediate value
-//     let t = instruction.t();      load target register
-//     let s = instruction.s();      load source register
-//
-//     let addr = self.reg(s).wrapping_add(i);
-//
-//     Address must be 32 bit aligned
-//     if (addr % 4 == 0) {
-//         let v = self.load32(addr);
-//
-//         let status = v.status;
-//         if (status == UNALIGNED_ACCESS || status == UNHANDLED_FETCH)
-//             ret INSTRUCTION_TYPE_UNKNOWN;
-//         if (status == NOT_IMPLEMENTED)
-//             ret INSTRUCTION_TYPE_NOT_IMPLEMENTED;
-//
-//         Put the load in the delay slot
-//         self.load = RegisterData(t, v.instruction);
-//     }
-//     else {
-//         self.exception(Exception::LoadAccessError);
-//     }
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 {
-	// Fixme
+	if (m_sr & 0x10000)
+	{
+		// Cache is isolated, ignore write
+		LOG("Ignoring load while cache is isolated");
+		return INSTRUCTION_TYPE_CACHE_ISOLATED;
+	}
+
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerTargetIndex   = instruction.getRegisterTargetIndex();
+	RegisterIndex registerSourceIndex   = instruction.getRegisterSourceIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + signExtendedImmediateValue;
+
+	// Address must be 32 bit aligned
+	if (addr % 4 == 0)
+	{
+		Instruction instructionLoaded = load32(addr);
+		Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+		if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+			instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+			return INSTRUCTION_TYPE_UNKNOWN;
+		if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+			return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+		// Put the load in the delay slot
+		m_load = RegisterData(registerTargetIndex, instructionLoaded.getInstructionOpcode());
+	}
+	else
+	{
+		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
+		return INSTRUCTION_TYPE_UNALIGNED;
+	}
+
 	return INSTRUCTION_TYPE_LW;
 }
 
@@ -597,61 +575,47 @@ Cpu::InstructionType Cpu::opcodeADDU(const Instruction& instruction)
 	return INSTRUCTION_TYPE_ADDU;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Store Halfword function (SH).
-// It should store 16 bit value into the memory.
-//
-// Rust:
-// fn op_sh(&mut self, instruction: Instruction) {
-//     if self.sr & 0x10000 != 0 {
-//         LOG("Ignoring store while cache is isolated");
-//         return CACHE_ISOLATED;
-//     }
-//
-//     let i = instruction.imm_se(); load sign extended immediate value
-//     let t = instruction.t();      load target register
-//     let s = instruction.s();      load source register
-//
-//     let addr = self.reg(s).wrapping_add(i);
-//
-//     Address must be 16 bit aligned
-//     if (addr % 2 == 0) {
-//         let v = self.reg(t);
-//
-//         self.store16(addr, v as u16);
-//     }
-//     else {
-//         self.exception(Exception::StoreAddressError);
-//     }
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 {
-	// Fixme
+	if (m_sr & 0x10000)
+	{
+		// Cache is isolated, ignore write
+		LOG("Ignoring store while cache is isolated");
+		return INSTRUCTION_TYPE_CACHE_ISOLATED;
+	}
+
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + instruction.getSignExtendedImmediateValue();
+
+	// Address must be 16 bit aligned
+	if (addr % 2 == 0)
+	{
+		store16(addr, getRegisterValue(registerTargetIndex));
+	}
+	else
+	{
+		exception(Exception::EXCEPTION_STORE_ADDRESS_ERROR);
+		return INSTRUCTION_TYPE_UNALIGNED;
+	}
+
 	return INSTRUCTION_TYPE_SH;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Jump And Link function (JAL).
-// It should behave like a regular jump instruction except that it also
-// stores the return address in $ra ($31).
-//
-// Rust:
-// fn op_jal(&mut self, instruction: Instruction) {
-//     let ra = self.pc;
-//
-//     Store return address in $31 ($ra)
-//     self.set_reg(RegisterIndex(31), ra);
-//
-//     Jump instruction
-//     self.op_j(instruction);
-//
-//     self.branch = true;
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJAL(const Instruction& instruction)
 {
-	// Fixme
+	//uint32_t ra = m_pc;
+	uint32_t ra = m_nextPc;
+
+	// Store return address in $31 ($ra)
+	setRegisterValue(RegisterIndex(31), ra);
+
+	// Jump instruction
+	opcodeJ(instruction);
+
+	m_branch = true;
+
 	return INSTRUCTION_TYPE_JAL;
 }
 
@@ -664,101 +628,59 @@ Cpu::InstructionType Cpu::opcodeANDI(const Instruction& instruction)
 	return INSTRUCTION_TYPE_ANDI;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Store Byte function (SB).
-// It should store 8 bit value into the memory.
-//
-// Rust:
-// fn op_sb(&mut self, instruction: Instruction) {
-//     if self.sr & 0x10000 != 0 {
-//         LOG("Ignoring store while cache is isolated");
-//         return CACHE_ISOLATED;
-//     }
-//
-//     let i = instruction.imm_se(); load sign extended immediate value
-//     let t = instruction.t();      load target register
-//     let s = instruction.s();      load source register
-//
-//     let addr = self.reg(s).wrapping_add(i);
-//     let v = self.reg(t);
-//
-//     self.store8(addr, v as u8);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
 {
-	// Fixme
+	if (m_sr & 0x10000)
+	{
+		// Cache is isolated, ignore write
+		LOG("Ignoring store while cache is isolated");
+		return INSTRUCTION_TYPE_CACHE_ISOLATED;
+	}
+
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + instruction.getSignExtendedImmediateValue();
+
+	store8(addr, getRegisterValue(registerTargetIndex));
+
 	return INSTRUCTION_TYPE_SB;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Jump Register function (JR).
-// It should set PC to the value stored in one of general purpose registers.
-//
-// Rust:
-// fn op_jr(&mut self, instruction: Instruction) {
-//     let s = instruction.s(); load source register
-//
-//     self.next_pc = self.reg(s);
-//     self.branch = true;
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJR(const Instruction& instruction)
 {
-	// Fixme
+	//m_pc = getRegisterValue(instruction.getRegisterSourceIndex());
+	m_nextPc = getRegisterValue(instruction.getRegisterSourceIndex());
+	m_branch = true;
 	return INSTRUCTION_TYPE_JR;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Load Byte (Signed) function (LB).
-// It should load 8 bit value from the memory.
-//
-// Rust:
-// fn op_lb(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se(); load sign extended immediate value
-//     let t = instruction.t();      load target register
-//     let s = instruction.s();      load source register
-//
-//     let addr = self.reg(s).wrapping_add(i);
-//
-//     Cast as i8 to force sign extension
-//     let v = self.load8(addr) as i8;
-//
-//     let status = v.status;
-//     if (status == UNALIGNED_ACCESS || status == UNHANDLED_FETCH)
-//         ret INSTRUCTION_TYPE_UNKNOWN;
-//     if (status == NOT_IMPLEMENTED)
-//         ret INSTRUCTION_TYPE_NOT_IMPLEMENTED;
-//
-//     self.load = RegisterData(t, v as u32);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 {
-	// Fixme
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + instruction.getSignExtendedImmediateValue();
+
+	Instruction instructionLoaded = load8(addr);
+	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+	int8_t register8Bit = (uint8_t)instructionLoaded.getInstructionOpcode();
+	m_load = RegisterData(registerTargetIndex, (uint32_t)register8Bit);
+
 	return INSTRUCTION_TYPE_LB;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Branch If Equal function (BEQ).
-// It should compare values that are stored in source and tagret
-// registers and if they are equal, immediate value should be 
-// added/substracted from the PC register. 
-//
-// Rust:
-// fn op_beq(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se(); load sign extended immediate value
-//     let s = instruction.s();      load source register
-//     let t = instruction.t();      load target register
-//
-//     if self.reg(s) == self.reg(t) {
-//         self.branch(i);
-//     }
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeBEQ(const Instruction& instruction)
 {
-	// Fixme
+	if (getRegisterValue(instruction.getRegisterSourceIndex()) == getRegisterValue(instruction.getRegisterTargetIndex()))
+		branch(instruction.getSignExtendedImmediateValue());
+
 	return INSTRUCTION_TYPE_BEQ;
 }
 
@@ -782,49 +704,27 @@ Cpu::InstructionType Cpu::opcodeADD(const Instruction& instruction)
 	return INSTRUCTION_TYPE_ADD;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Branch If Greater Than Zero function (BGTZ).
-// It should compare a single general purpose register to 0 and if it is greater than 0,
-// immediate value should be added/substracted from the PC register.
-//
-// Rust:
-// fn op_bgtz(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se();
-//     let s = instruction.s();
-//
-//     let v = self.reg(s) as i32;
-//
-//     if v > 0 {
-//         self.branch(i);
-//     }
-// }
-//----------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeBGTZ(const Instruction& instruction)
 {
-	// Fixme
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+
+	int32_t registerSourceValue = getRegisterValue(registerSourceIndex);
+	if (registerSourceValue > 0)
+		branch(signExtendedImmediateValue);
+
 	return INSTRUCTION_TYPE_BGTZ;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Branch If Less Than Or Equal To Zero function (BLEZ).
-// It should compare a signle general purpose register to 0 and if it is less than or equal to zero,
-// immediate value should be added/substracted from the PC register.
-//
-// Rust:
-// fn op_blez(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se();
-//     let s = instruction.s();
-//
-//     let v = self.reg(s) as i32;
-//
-//     if v <= 0 {
-//         self.branch(i);
-//     }
-// }
-//----------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeBLEZ(const Instruction& instruction)
 {
-	// Fixme
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+
+	int32_t registerSourceValue = getRegisterValue(registerSourceIndex);
+	if (registerSourceValue <= 0)
+		branch(signExtendedImmediateValue);
+
 	return INSTRUCTION_TYPE_BLEZ;
 }
 
@@ -848,29 +748,17 @@ Cpu::InstructionType Cpu::opcodeLBU(const Instruction& instruction)
 	return INSTRUCTION_TYPE_LBU;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Jump And Link Register function (JALR).
-// It should set PC register to the value stored in one of general purpose registers
-// and store the return address in the general purpose register.
-//
-// Rust:
-// fn op_jarl(&mut self, instruction: Instruction) {
-//     let d = instruction.d();
-//     let s = instruction.s();
-//
-//     let ra = self.next_pc;
-//
-//     Store return address in 'd'
-//     self.set_reg(d, ra);
-//
-//     self.next_pc = self.reg(s);
-//
-//     self.branch = true;
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeJALR(const Instruction& instruction)
 {
-	// Fixme
+	uint32_t ra = m_nextPc;
+
+	// Store return address in register destination index
+	setRegisterValue(instruction.getRegisterDestinationIndex(), ra);
+
+	m_nextPc = getRegisterValue(instruction.getRegisterSourceIndex());
+
+	m_branch = true;
+
 	return INSTRUCTION_TYPE_JALR;
 }
 
@@ -882,7 +770,7 @@ Cpu::InstructionType Cpu::opcodeBXX(const Instruction& instruction)
 	uint32_t instructionOpcode = instruction.getInstructionOpcode();
 
 	uint32_t isBGEZ = (instructionOpcode >> 16) & 1;
-	bool isLink = (instructionOpcode >> 17) & 0xf == 8;
+	bool isLink = ((instructionOpcode >> 17) & 0xf) == 8;
 
 	int32_t sourceValue = getRegisterValue(registerSourceIndex);
 
@@ -896,7 +784,7 @@ Cpu::InstructionType Cpu::opcodeBXX(const Instruction& instruction)
 		setRegisterValue(RegisterIndex(31), ra);
 	}
 
-	if (test)
+	if (test != 0)
 	{
 		branch(signExtendedImmediateValue);
 	}
@@ -904,67 +792,32 @@ Cpu::InstructionType Cpu::opcodeBXX(const Instruction& instruction)
 	return INSTRUCTION_TYPE_BXX;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Set If Less Than Immediate function (SLTI).
-// It should compare register with an immediate value (sign-extended).
-// Comparison is done by using signed arithmetics.
-//
-// Rust:
-// fn op_slti(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se() as i32;
-//     let s = instruction.s();
-//     let t = instruction.t();
-//
-//     let v = (self.reg(s) as i32) < i;
-//
-//     self.set_reg(t, v as u32);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSLTI(const Instruction& instruction)
 {
-	// Fixme
+	int32_t registerSourceValue = getRegisterValue(instruction.getRegisterSourceIndex());
+	int32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+
+	setRegisterValue(instruction.getRegisterTargetIndex(), registerSourceValue < signExtendedImmediateValue);
+
 	return INSTRUCTION_TYPE_SLTI;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Substract Unsigned function (SUBU).
-// It should substract target register value from source register value.
-//
-// Rust:
-// fn op_subu(&mut self, instruction: Instruction) {
-//     let s = instruction.s();
-//     let t = instruction.t();
-//     let d = instruction.d();
-//
-//     let v = self.reg(s).wrapping_sub(self.reg(t));
-//
-//     self.set_reg(d, v);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSUBU(const Instruction& instruction)
 {
-	// Fixme
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerSourceIndex) - getRegisterValue(registerTargetIndex));
+
 	return INSTRUCTION_TYPE_SUBU;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Shift Right Arithmetic function (SRA).
-// It should implement arithmetic shift right instruction.
-//
-// Rust:
-// fn op_sra(&mut self, instruction: Instruction) {
-//     let i = instruction.shift();
-//     let t = instruction.t();
-//     let d = instruction.d();
-//
-//     let v = (self.reg(t) as i32) >> i;
-//
-//     self.set_reg(d, v as u32);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSRA(const Instruction& instruction)
 {
-	// Fixme
+	int32_t rightShiftedValue = ((int32_t)getRegisterValue(instruction.getRegisterTargetIndex())) >> instruction.getShiftImmediateValue();
+
+	setRegisterValue(instruction.getRegisterDestinationIndex(), (uint32_t)rightShiftedValue);
+
 	return INSTRUCTION_TYPE_SRA;
 }
 
@@ -994,65 +847,21 @@ Cpu::InstructionType Cpu::opcodeDIV(const Instruction& instruction)
 	return INSTRUCTION_TYPE_DIV;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Move From LO function (MFLO).
-// It should move the contents of LO in a general purpose register.
-//
-// Rust:
-// fn op_mflo(&mut self, instruction: Instruction) {
-//     let d = instruction.d();
-//
-//     let lo = self.lo;
-//
-//     self.set_reg(d, lo);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeMFLO(const Instruction& instruction)
 {
-	// Fixme
+	setRegisterValue(instruction.getRegisterDestinationIndex(), m_lo);
 	return INSTRUCTION_TYPE_MFLO;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Shift Right Logical function (SRL).
-// It should implement right logical shift.
-//
-// Rust:
-// fn op_srl(&mut self, instruction: Instruction) {
-//     let i = instruction.shift();
-//     let t = instruction.t();
-//     let d = instruction.d();
-//
-//     let v = self.reg(t) >> i;
-//
-//     self.set_reg(d, v);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSRL(const Instruction& instruction)
 {
-	// Fixme
+	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(instruction.getRegisterTargetIndex()) >> instruction.getShiftImmediateValue());
 	return INSTRUCTION_TYPE_SRL;
 }
 
-//--------------------------------------------------------------
-// TODO : to implement the Set If Less Than Immediate Unsigned function (SLTIU).
-// It should compare register with an immediate value (sign-extended).
-// Comparison is done by using unsigned arithmetics.
-//
-// Rust:
-// fn op_sltiu(&mut self, instruction: Instruction) {
-//     let i = instruction.imm_se();
-//     let s = instruction.s();
-//     let t = instruction.t();
-//
-//     let v = self.reg(s) < i;
-//
-//     self.set_reg(t, v as u32);
-// }
-//--------------------------------------------------------------
 Cpu::InstructionType Cpu::opcodeSLTIU(const Instruction& instruction)
 {
-	// Fixme
+	setRegisterValue(instruction.getRegisterTargetIndex(), getRegisterValue(instruction.getRegisterSourceIndex()) < instruction.getSignExtendedImmediateValue());
 	return INSTRUCTION_TYPE_SLTIU;
 }
 
@@ -1158,7 +967,7 @@ Cpu::InstructionType Cpu::opcodeRFE(const Instruction& instruction)
 	// Restore the pre-exception mode by shifting the Interrupt
 	// Enable/User Mode stack back to its original position.
 	uint32_t mode = m_sr & 0x3f;
-	m_sr &= (!0x3f);
+	m_sr &= (~0x3f);
 	m_sr |= mode >> 2;
 
 	return INSTRUCTION_TYPE_RFE;
@@ -1181,6 +990,411 @@ Cpu::InstructionType Cpu::opcodeLHU(const Instruction& instruction)
 	}
 
 	return INSTRUCTION_TYPE_LHU;
+}
+
+Cpu::InstructionType Cpu::opcodeSLLV(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	// Shift amount is truncated to 5 bits
+	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerTargetIndex) << (getRegisterValue(registerSourceIndex) & 0x1f));
+	return INSTRUCTION_TYPE_SLLV;
+}
+
+Cpu::InstructionType Cpu::opcodeLH(const Instruction& instruction)
+{
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + signExtendedImmediateValue;
+
+	// Cast as i16 to force sign extension
+	Instruction instructionLoaded = load16(addr);
+	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+	int16_t instructionOpcode = instructionLoaded.getInstructionOpcode();
+
+	// Put the load in the delay slot
+	m_load = RegisterData(registerTargetIndex, instructionOpcode);
+	return INSTRUCTION_TYPE_LH;
+}
+
+Cpu::InstructionType Cpu::opcodeNOR(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	setRegisterValue(instruction.getRegisterDestinationIndex(), ~(getRegisterValue(registerSourceIndex) | getRegisterValue(registerTargetIndex)));
+	return INSTRUCTION_TYPE_NOR;
+}
+
+Cpu::InstructionType Cpu::opcodeSRAV(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	// Shift amount is truncated to 5 bits
+	setRegisterValue(instruction.getRegisterDestinationIndex(), ((int32_t)getRegisterValue(registerTargetIndex)) >> (getRegisterValue(registerSourceIndex) & 0x1f));
+	return INSTRUCTION_TYPE_SRAV;
+}
+
+Cpu::InstructionType Cpu::opcodeSRLV(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	// Shift amount is truncated to 5 bits
+	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerTargetIndex) >> (getRegisterValue(registerSourceIndex) & 0x1f));
+	return INSTRUCTION_TYPE_SRLV;
+}
+
+Cpu::InstructionType Cpu::opcodeMULTU(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint64_t registerSourceValue = getRegisterValue(registerSourceIndex);
+	uint64_t registerTargetValue = getRegisterValue(registerTargetIndex);
+
+	uint64_t multResult = registerSourceValue * registerTargetValue;
+
+	m_hi = (multResult >> 32);
+	m_lo = (uint32_t)multResult;
+
+	return INSTRUCTION_TYPE_MULTU;
+}
+
+Cpu::InstructionType Cpu::opcodeXOR(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerSourceIndex) ^ getRegisterValue(registerTargetIndex));
+	return INSTRUCTION_TYPE_XOR;
+}
+
+Cpu::InstructionType Cpu::opcodeBREAK(const Instruction& instruction)
+{
+	exception(Exception::EXCEPTION_BREAK);
+	return INSTRUCTION_TYPE_BREAK;
+}
+
+Cpu::InstructionType Cpu::opcodeMULT(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	int64_t registerSourceValue = (int32_t)getRegisterValue(registerSourceIndex);
+	int64_t registerTargetValue = (int32_t)getRegisterValue(registerTargetIndex);
+
+	uint64_t multResult = registerSourceValue * registerTargetValue;
+
+	m_hi = (multResult >> 32);
+	m_lo = (uint32_t)multResult;
+
+	return INSTRUCTION_TYPE_MULT;
+}
+
+Cpu::InstructionType Cpu::opcodeSUB(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	int32_t registerSourceValue = getRegisterValue(registerSourceIndex);
+	int32_t registerTargetValue = getRegisterValue(registerTargetIndex);
+
+	//if ((registerSourceValue > 0 && registerTargetValue > INT_MAX + registerSourceValue) ||
+	//	(registerSourceValue < 0 && registerTargetValue < INT_MIN + registerSourceValue))
+	//{
+	//	LOG("SUB overflow");
+	//	exception(Exception::EXCEPTION_OVERFLOW);
+	//	return INSTRUCTION_TYPE_OVERFLOW;
+	//}
+	//else
+	//{
+	setRegisterValue(instruction.getRegisterDestinationIndex(), registerSourceValue - registerTargetValue);
+	//}
+
+	return INSTRUCTION_TYPE_SUB;
+}
+
+Cpu::InstructionType Cpu::opcodeXORI(const Instruction& instruction)
+{
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	setRegisterValue(registerTargetIndex, getRegisterValue(registerSourceIndex) ^ instruction.getImmediateValue());
+	return INSTRUCTION_TYPE_XORI;
+}
+
+Cpu::InstructionType Cpu::opcodeCOP1(const Instruction& instruction)
+{
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_COP1;
+}
+
+Cpu::InstructionType Cpu::opcodeCOP2(const Instruction& instruction)
+{
+	LOG("Unhandled GTE instruction 0x" << std::hex << instruction.getInstructionOpcode());
+	return INSTRUCTION_TYPE_COP2;
+}
+
+Cpu::InstructionType Cpu::opcodeCOP3(const Instruction& instruction)
+{
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_COP3;
+}
+
+Cpu::InstructionType Cpu::opcodeLWL(const Instruction& instruction)
+{
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + signExtendedImmediateValue;
+
+	// This instruction bypasses the load delay restriction : this instruction will merge
+	// the contents with the value currently being loaded if it needs to be
+	uint32_t currentRegisterValue = m_outRegs[registerTargetIndex.getRegisterIndex()];
+
+	// Next we load the *aligned* word containing the first addressed byte
+	uint32_t alignedAddr = addr & ~0x3;
+
+	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+	uint32_t alignedWord = instructionLoaded.getInstructionOpcode();
+
+	// Depending on the address alignment we fetch the 1, 2, 3 or 4 *most* significant bytes
+	// and put them in the target register
+	uint32_t alignedValue = 0;
+	switch (addr & 0x3)
+	{
+	case 0:
+		alignedValue = (currentRegisterValue & 0x00ffffff) | (alignedWord << 24);
+		break;
+	case 1:
+		alignedValue = (currentRegisterValue & 0x0000ffff) | (alignedWord << 16);
+		break;
+	case 2:
+		alignedValue = (currentRegisterValue & 0x000000ff) | (alignedWord << 8);
+		break;
+	case 3:
+		alignedValue = alignedWord;
+		break;
+	}
+
+	// Put the load in the delay slot
+	m_load = RegisterData(registerTargetIndex, alignedValue);
+	return INSTRUCTION_TYPE_LWL;
+}
+
+Cpu::InstructionType Cpu::opcodeLWR(const Instruction& instruction)
+{
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	int32_t addr = getRegisterValue(registerSourceIndex) + signExtendedImmediateValue;
+
+	// This instruction bypasses the load delay restriction : this instruction will merge
+	// the contents with the value currently being loaded if it needs to be
+	uint32_t currentRegisterValue = m_outRegs[registerTargetIndex.getRegisterIndex()];
+
+	// Next we load the *aligned* word containing the first addressed byte
+	uint32_t alignedAddr = addr & ~0x3;
+
+	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+	uint32_t alignedWord = instructionLoaded.getInstructionOpcode();
+
+	// Depending on the address alignment we fetch the 1, 2, 3 or 4 *most* significant bytes
+	// and put them in the target register
+	uint32_t alignedValue = 0;
+	switch (addr & 0x3)
+	{
+	case 0:
+		alignedValue = alignedWord;
+		break;
+	case 1:
+		alignedValue = (currentRegisterValue & 0xff000000) | (alignedWord >> 8);
+		break;
+	case 2:
+		alignedValue = (currentRegisterValue & 0xffff0000) | (alignedWord >> 16);
+		break;
+	case 3:
+		alignedValue = (currentRegisterValue & 0xffffff00) | (alignedWord >> 24);
+		break;
+	}
+
+	// Put the load in the delay slot
+	m_load = RegisterData(registerTargetIndex, alignedValue);
+	return INSTRUCTION_TYPE_LWR;
+}
+
+Cpu::InstructionType Cpu::opcodeSWL(const Instruction& instruction)
+{
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + signExtendedImmediateValue;
+	uint32_t registerTargetValue = getRegisterValue(registerTargetIndex);
+
+	uint32_t alignedAddr = addr & ~0x3;
+
+	// Load the current value for the aligned word at the target address
+	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+	uint32_t currentMem = instructionLoaded.getInstructionOpcode();
+
+	uint32_t mem = 0;
+	switch (addr & 0x3)
+	{
+	case 0:
+		mem = (currentMem & 0xffffff00) | (registerTargetValue >> 24);
+		break;
+	case 1:
+		mem = (currentMem & 0xffff0000) | (registerTargetValue >> 16);
+		break;
+	case 2:
+		mem = (currentMem & 0xff000000) | (registerTargetValue >> 8);
+		break;
+	case 3:
+		mem = registerTargetValue;
+		break;
+	}
+
+	store32(alignedAddr, mem);
+	return INSTRUCTION_TYPE_SWL;
+}
+
+Cpu::InstructionType Cpu::opcodeSWR(const Instruction& instruction)
+{
+	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
+	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
+	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
+
+	uint32_t addr = getRegisterValue(registerSourceIndex) + signExtendedImmediateValue;
+	uint32_t registerTargetValue = getRegisterValue(registerTargetIndex);
+
+	uint32_t alignedAddr = addr & ~0x3;
+
+	// Load the current value for the aligned word at the target address
+	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+	uint32_t currentMem = instructionLoaded.getInstructionOpcode();
+
+	uint32_t mem = 0;
+	switch (addr & 0x3)
+	{
+	case 0:
+		mem = registerTargetValue;
+		break;
+	case 1:
+		mem = (currentMem & 0x000000ff) | (registerTargetValue << 8);
+		break;
+	case 2:
+		mem = (currentMem & 0x0000ffff) | (registerTargetValue << 16);
+		break;
+	case 3:
+		mem = (currentMem & 0x00ffffff) | (registerTargetValue << 24);
+		break;
+	}
+
+	store32(alignedAddr, mem);
+	return INSTRUCTION_TYPE_SWR;
+}
+
+Cpu::InstructionType Cpu::opcodeLWC0(const Instruction& instruction)
+{
+	// Not supported by this coprocessor
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_LWC0;
+}
+
+Cpu::InstructionType Cpu::opcodeLWC1(const Instruction& instruction)
+{
+	// Not supported by this coprocessor
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_LWC1;
+}
+
+Cpu::InstructionType Cpu::opcodeLWC2(const Instruction& instruction)
+{
+	LOG("Unhandled GTE LWC 0x" << std::hex << instruction.getInstructionOpcode());
+	return INSTRUCTION_TYPE_LWC2;
+}
+
+Cpu::InstructionType Cpu::opcodeLWC3(const Instruction& instruction)
+{
+	// Not supported by this coprocessor
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_LWC3;
+}
+
+Cpu::InstructionType Cpu::opcodeSWC0(const Instruction& instruction)
+{
+	// Not supported by this coprocessor
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_SWC0;
+}
+
+Cpu::InstructionType Cpu::opcodeSWC1(const Instruction& instruction)
+{
+	// Not supported by this coprocessor
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_SWC1;
+}
+
+Cpu::InstructionType Cpu::opcodeSWC2(const Instruction& instruction)
+{
+	LOG("Unhandled GTE SWC 0x" << std::hex << instruction.getInstructionOpcode());
+	return INSTRUCTION_TYPE_SWC2;
+}
+
+Cpu::InstructionType Cpu::opcodeSWC3(const Instruction& instruction)
+{
+	// Not supported by this coprocessor
+	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
+	return INSTRUCTION_TYPE_SWC3;
+}
+
+Cpu::InstructionType Cpu::opcodeIllegal(const Instruction& instruction)
+{
+	LOG("Illegal instruction 0x" << std::hex << instruction.getInstructionOpcode());
+	exception(Exception::EXCEPTION_UNKNOWN_INSTRUCTION);
+	return INSTRUCTION_TYPE_UNKNOWN;
 }
 
 uint32_t Cpu::getRegisterValue(RegisterIndex registerIndex) const

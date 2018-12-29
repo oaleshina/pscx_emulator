@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="gl">
+      <UniqueIdentifier>{5ef00590-cf7f-449b-920f-13fea3572fb0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets">
+      <UniqueIdentifier>{c5735482-f59f-4560-bc90-e382274b82b4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pscx_bios.cpp">
@@ -30,10 +36,22 @@
     <ClCompile Include="pscx_instruction.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pscx_ram.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="pscx_memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pscx_ram.cpp">
+    <ClCompile Include="pscx_dma.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pscx_gpu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="glad.c">
+      <Filter>gl</Filter>
+    </ClCompile>
+    <ClCompile Include="pscx_renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -50,17 +68,37 @@
     <ClInclude Include="pscx_instruction.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="pscx_cachecontrol.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="pscx_common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="pscx_memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_cachecontrol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pscx_ram.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="pscx_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_dma.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_gpu.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inc\KHR\khrplatform.h">
+      <Filter>gl</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\fragment.glsl">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="assets\vertex.glsl">
+      <Filter>assets</Filter>
+    </None>
   </ItemGroup>
 </Project>

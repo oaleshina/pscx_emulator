@@ -3,30 +3,24 @@
 #include <fstream>
 #include <iterator>
 
-//------------------------------------------------
-// TODO : to implement the loadBios function.
-// It should load the BIOS binary file into array of bytes u8 (m_data).
-//
-// Rust:
-// pub fn new(path: &Path) -> Result<Bios> {
-//    let file = try!(File::open(path));
-//
-//    let mut data = Vec::new();
-//
-//    Load the BIOS
-//    try!(file.take(BIOS_SIZE).read_to_end(&mut data));
-//
-//    if data.len() == BIOS_SIZE as usize {
-//       Ok(Bios { data: data })
-//    } else {
-//       Err(Error::new(ErrorKind::InvalidInput,
-//                      "Invalid_BIOS_size"))
-//    }
-//------------------------------------------------
 Bios::BiosState Bios::loadBios(std::string path)
 {
-	// Fixme
-	return BIOS_STATE_INVALID_BIOS_SIZE;
+	std::basic_ifstream<uint8_t> biosFile(path, std::ios::in | std::ios::binary);
+
+	if (!biosFile.good())
+		return BIOS_STATE_INCORRECT_FILENAME;
+
+	const uint32_t biosSize = 512 * 1024; // 512 kb
+
+	// Load the BIOS
+	m_data.insert(m_data.begin(), std::istreambuf_iterator<uint8_t>(biosFile), std::istreambuf_iterator<uint8_t>());
+
+	biosFile.close();
+
+	if (m_data.size() != biosSize)
+		return BIOS_STATE_INVALID_BIOS_SIZE;
+
+	return BIOS_STATE_SUCCESS;
 }
 
 uint32_t Bios::load32(uint32_t offset) const

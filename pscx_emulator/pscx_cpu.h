@@ -79,6 +79,33 @@ struct Cpu
 		INSTRUCTION_TYPE_MTHI,
 		INSTRUCTION_TYPE_RFE,
 		INSTRUCTION_TYPE_LHU,
+		INSTRUCTION_TYPE_SLLV,
+		INSTRUCTION_TYPE_LH,
+		INSTRUCTION_TYPE_NOR,
+		INSTRUCTION_TYPE_SRAV,
+		INSTRUCTION_TYPE_SRLV,
+		INSTRUCTION_TYPE_MULTU,
+		INSTRUCTION_TYPE_XOR,
+		INSTRUCTION_TYPE_BREAK,
+		INSTRUCTION_TYPE_MULT,
+		INSTRUCTION_TYPE_SUB,
+		INSTRUCTION_TYPE_XORI,
+		INSTRUCTION_TYPE_COP1,
+		INSTRUCTION_TYPE_COP2,
+		INSTRUCTION_TYPE_COP3,
+		INSTRUCTION_TYPE_LWL,
+		INSTRUCTION_TYPE_LWR,
+		INSTRUCTION_TYPE_SWL,
+		INSTRUCTION_TYPE_SWR,
+		INSTRUCTION_TYPE_LWC0,
+		INSTRUCTION_TYPE_LWC1,
+		INSTRUCTION_TYPE_LWC2,
+		INSTRUCTION_TYPE_LWC3,
+		INSTRUCTION_TYPE_SWC0,
+		INSTRUCTION_TYPE_SWC1,
+		INSTRUCTION_TYPE_SWC2,
+		INSTRUCTION_TYPE_SWC3,
+		//INSTRUCTION_TYPE_ILLEGAL,
 		INSTRUCTION_TYPE_CACHE_ISOLATED,
 		INSTRUCTION_TYPE_NOT_IMPLEMENTED, // temporal enum variable for debugging
 		INSTRUCTION_TYPE_UNKNOWN,
@@ -117,7 +144,16 @@ private:
 		EXCEPTION_LOAD_ADDRESS_ERROR = 0x4,
 
 		// Address error on store
-		EXCEPTION_STORE_ADDRESS_ERROR = 0x5
+		EXCEPTION_STORE_ADDRESS_ERROR = 0x5,
+
+		// Breakpoint ( caused by the BREAK opcode )
+		EXCEPTION_BREAK = 0x9,
+
+		// Unsupported coprocessor operation
+		EXCEPTION_COPROCESSOR_ERROR = 0xb,
+
+		// CPU encountered an unknown instruction
+		EXCEPTION_UNKNOWN_INSTRUCTION = 0xa
 	};
 
 	// Special purpose registers
@@ -239,6 +275,33 @@ private:
 	InstructionType opcodeMTHI (const Instruction& instruction); // Move to HI
 	InstructionType opcodeRFE  (const Instruction& instruction); // Return from exception
 	InstructionType opcodeLHU  (const Instruction& instruction); // Load halfword unsigned
+	InstructionType opcodeSLLV (const Instruction& instruction); // Shift left logical variable
+	InstructionType opcodeLH   (const Instruction& instruction); // Load halfword
+	InstructionType opcodeNOR  (const Instruction& instruction); // Bitwise not or
+	InstructionType opcodeSRAV (const Instruction& instruction); // Shift right arithmetic variable
+	InstructionType opcodeSRLV (const Instruction& instruction); // Shift right logical variable
+	InstructionType opcodeMULTU(const Instruction& instruction); // Multiply unsigned
+	InstructionType opcodeXOR  (const Instruction& instruction); // Bitwise exclusive or
+	InstructionType opcodeBREAK(const Instruction& instruction); // Break
+	InstructionType opcodeMULT (const Instruction& instruction); // Multiply ( signed )
+	InstructionType opcodeSUB  (const Instruction& instruction); // Substract and check for signed overflow
+	InstructionType opcodeXORI (const Instruction& instruction); // Bitwise exclusive or immediate
+	InstructionType opcodeCOP1 (const Instruction& instruction); // Coprocessor 1 opcode ( does not exist on the Playstation )
+	InstructionType opcodeCOP2 (const Instruction& instruction); // Coprocessor 2 opcode ( Geometry Transform Engine )
+	InstructionType opcodeCOP3 (const Instruction& instruction); // Coprocessor 3 opcode ( does not exist on the Playstation )
+	InstructionType opcodeLWL  (const Instruction& instruction); // Load word left ( little-endian only implementation )
+	InstructionType opcodeLWR  (const Instruction& instruction); // Load word right ( little-endian only implementation )
+	InstructionType opcodeSWL  (const Instruction& instruction); // Store word left ( little-endian only implementation )
+	InstructionType opcodeSWR  (const Instruction& instruction); // Store word right ( little-endian only implementation )
+	InstructionType opcodeLWC0 (const Instruction& instruction); // Load word in Coprocessor 0
+	InstructionType opcodeLWC1 (const Instruction& instruction); // Load word in Coprocessor 1
+	InstructionType opcodeLWC2 (const Instruction& instruction); // Load word in Coprocessor 2
+	InstructionType opcodeLWC3 (const Instruction& instruction); // Load word in Coprocessor 3
+	InstructionType opcodeSWC0 (const Instruction& instruction); // Store word in Coprocessor 0
+	InstructionType opcodeSWC1 (const Instruction& instruction); // Store word in Coprocessor 1
+	InstructionType opcodeSWC2 (const Instruction& instruction); // Store word in Coprocessor 2
+	InstructionType opcodeSWC3 (const Instruction& instruction); // Store word in Coprocessor 3
+	InstructionType opcodeIllegal(const Instruction& instruction); // Illegal instruction
 
 	void branch(uint32_t offset);
 	void exception(Exception cause); // Trigger an exception
