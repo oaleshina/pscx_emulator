@@ -71,9 +71,6 @@
     <ClInclude Include="pscx_memory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="pscx_cachecontrol.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="pscx_ram.h">
       <Filter>Header Files</Filter>
     </ClInclude>

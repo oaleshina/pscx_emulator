@@ -49,6 +49,44 @@ namespace pscx_memory
 		uint32_t m_index;
 	};
 
+	struct StatusRegister
+	{
+		StatusRegister(uint32_t statusRegister) : m_status(statusRegister) {}
+
+		uint32_t getStatusRegister() const;
+		bool isCacheIsolated() const;
+
+		// Return the exception handler address depending on the value of the BEV bit
+		uint32_t exceptionHandler() const;
+
+		// Shift bits [5:0] of 'sr' two bits to the left. Those bits
+		// are three pairs of Interrupt Enable/User Mode bits behaving
+		// like a stack 3 entries deep. Entering an exception pushes a pair
+		// of zeroes by left shifting the stack which disables
+		// interrupts and puts the CPU in kernel mode. The original third entry
+		// is discarded (it's up to the kernel to handle more than two recursive exception levels).
+		void enterException();
+
+		// The opposite of 'enter_exception': shift mode the other way around,
+		// discarding the current state.
+		void returnFromException();
+
+	private:
+		uint32_t m_status;
+	};
+
+	struct CacheControl
+	{
+		CacheControl(uint32_t cache) : m_cache(cache) {}
+
+		// Return true if the instruction cache is enabled
+		bool icacheEnabled() const;
+		bool tagTestMode() const;
+
+	private:
+		uint32_t m_cache;
+	};
+
 	// Address map declarations
 	const Range RAM          = Range(0x00000000, 2 * 1024 * 1024);
 	const Range BIOS         = Range(0x1fc00000, 512 * 1024);

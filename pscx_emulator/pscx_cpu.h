@@ -180,8 +180,11 @@ private:
 	// They contain the output of the current instruction
 	uint32_t m_outRegs[32];
 
+	// Instruction cache (256 4-word cachelines)
+	ICacheLine m_icache[0x100];
+
 	// Cop0 register 12: Status Register
-	uint32_t m_sr;
+	StatusRegister m_sr;
 
 	// Cop0 register 13: Cause Register
 	uint32_t m_cause;
@@ -215,19 +218,18 @@ private:
 	// Array for storing instructions for logging
 	std::vector<uint32_t> m_debugInstructions;
 
-	// Load 32 bit value from the interconnect
-	Instruction load32(uint32_t addr) const;
+	template<typename T>
+	Instruction load(uint32_t addr) const;
 
-	// Load 16 bit value from the memory
-	Instruction load16(uint32_t addr) const;
+	template<typename T>
+	void store(uint32_t addr, T value);
 
-	// Load 8 bit value from the memory
-	Instruction load8(uint32_t addr) const;
+	// Handle writes when the cache is isolated
+	template<typename T> 
+	void cacheMaintenance(uint32_t addr, T value);
 
-	void store32(uint32_t addr, uint32_t value); // Store 32 bit value into the memory
-	void store16(uint32_t addr, uint16_t value); // Store 16 bit value into the memory
-	void store8 (uint32_t addr, uint8_t  value); // Store 8 bit value into the memory
-
+	// Fetch the instruction at 'currentPC' through the instruction cache
+	Instruction fetchInstruction();
 	InstructionType decodeAndExecute(const Instruction& instruction);
 
 	// Opcodes

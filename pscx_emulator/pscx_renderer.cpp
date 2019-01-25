@@ -85,7 +85,18 @@ Renderer::Renderer()
 		glVertexAttribIPointer(index, 3, GL_UNSIGNED_BYTE, 0, nullptr);
 	}
 
+	// Retrieve and initialize the draw offset
+	m_uniformOffset = glGetUniformLocation(m_program, "offset");
+	glUniform2i(m_uniformOffset, 0, 0);
+
 	m_numOfVertices = 0x0;
+}
+
+Renderer::~Renderer()
+{
+	/*SDL_GL_DeleteContext(m_glContext);
+	SDL_DestroyWindow(m_window);
+	SDL_Quit();*/
 }
 
 GLuint Renderer::compileShader(char* src, GLenum shaderType)
@@ -194,6 +205,15 @@ void Renderer::pushQuad(Position positions[], Color colors[])
 		m_colors.set(m_numOfVertices, colors[i]);
 		m_numOfVertices += 1;
 	}
+}
+
+void Renderer::setDrawOffset(int16_t x, int16_t y)
+{
+	// Force draw for the primitives with the current offset
+	draw();
+
+	// Update the uniform value
+	glUniform2i(m_program, x, y);
 }
 
 void Renderer::draw()

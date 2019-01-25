@@ -101,6 +101,7 @@ private:
 struct Renderer
 {
 	Renderer();
+	~Renderer();
 
 	GLuint compileShader(char* src, GLenum shaderType);
 	GLuint linkProgram(GLuint shaders[]);
@@ -112,6 +113,9 @@ struct Renderer
 
 	// Add a quad to the draw buffer
 	void pushQuad(Position positions[], Color colors[]);
+
+	// Set the value of the uniform draw offset
+	void setDrawOffset(int16_t x, int16_t y);
 
 	// Draw the buffered commands and reset the buffers
 	void draw();
@@ -143,4 +147,7 @@ private:
 
 	// Current number of vertices in the buffers
 	uint32_t m_numOfVertices;
+
+	// Index of the "offset" shader uniform
+	GLint m_uniformOffset;
 };

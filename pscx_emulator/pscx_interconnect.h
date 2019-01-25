@@ -15,29 +15,28 @@ struct Interconnect
 {
 	Interconnect(Bios bios);
 
-	// Load 32 bit word at 'addr'
-	Instruction load32(uint32_t addr) const;
+	template<typename T>
+	Instruction load(uint32_t addr) const;
 
-	// Load 16 bit halfword at 'addr'
-	Instruction load16(uint32_t addr) const;
+	template<typename T>
+	void store(uint32_t addr, T value);
 
-	// Load byte at 'addr'
-	Instruction load8(uint32_t addr) const;
+	template<typename T>
+	T getDmaRegister(uint32_t offset) const; // DMA register read
 
-	void store32(uint32_t addr, uint32_t value); // Store 32 bit word 'val' into 'addr'
-	void store16(uint32_t addr, uint16_t value); // Store 16 bit word 'val' into 'addr'
-	void store8 (uint32_t addr, uint8_t  value); // Store 8 bit word 'val' into 'addr'
-
-	uint32_t getDmaRegister(uint32_t offset) const; // DMA register read
-	void setDmaRegister(uint32_t offset, uint32_t value); // DMA register write
+	template<typename T>
+	void setDmaRegister(uint32_t offset, T value); // DMA register write
 
 	void doDma(Port port); // Execute DMA transfer for a port
 	void doDmaBlock(Port port);
 	void doDmaLinkedList(Port port); // Emulate DMA transfer for linked list synchronization mode
 
+	CacheControl getCacheControl() const;
+
 	// Basic Input/Output memory
 	Bios m_bios;
 	Ram m_ram;
 	Dma m_dma; // DMA registers
-	Gpu m_gpu;
+	Gpu m_gpu; // Graphics Processir Unit
+	CacheControl m_cacheControl; // Cache Control register
 };

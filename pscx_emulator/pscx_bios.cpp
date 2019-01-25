@@ -23,7 +23,7 @@ Bios::BiosState Bios::loadBios(std::string path)
 	return BIOS_STATE_SUCCESS;
 }
 
-uint32_t Bios::load32(uint32_t offset) const
+template<> uint32_t Bios::load<uint32_t>(uint32_t offset) const
 {
 	uint32_t b0 = m_data[offset + 0];
 	uint32_t b1 = m_data[offset + 1];
@@ -33,7 +33,12 @@ uint32_t Bios::load32(uint32_t offset) const
 	return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
 }
 
-uint8_t Bios::load8(uint32_t offset) const
+template<> uint16_t Bios::load<uint16_t>(uint32_t offset) const
+{
+	return 0;
+}
+
+template<> uint8_t Bios::load<uint8_t>(uint32_t offset) const
 {
 	return m_data[offset];
 }

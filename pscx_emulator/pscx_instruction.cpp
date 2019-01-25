@@ -59,3 +59,40 @@ Instruction::InstructionStatus Instruction::getInstructionStatus() const
 {
 	return m_instructionStatus;
 }
+
+// ***************** ICacheLine implementation ******************
+uint32_t ICacheLine::getTag() const
+{
+	return m_tagValid & 0xfffff000;
+}
+
+uint32_t ICacheLine::getValidIndex() const
+{
+	// We store the valid bits in bits [4:2], this way we can just
+	// mask the PC value  in 'setTagValid' without having to shuffle
+	// the bits around
+	return (m_tagValid >> 2) & 0x7;
+}
+
+void ICacheLine::setTagValid(uint32_t pc)
+{
+	m_tagValid = pc & 0xfffff00c;
+}
+
+void ICacheLine::invalidate()
+{
+	// Setting bit 4 means that the value returned by getValidIndex
+	// will be in the range [4, 7] which is outside the valid cacheline
+	// index range [0, 3]
+	m_tagValid |= 0x10;
+}
+
+Instruction ICacheLine::getInstruction(uint32_t index) const
+{
+	return m_cacheLine[index];
+}
+
+void ICacheLine::setInstruction(uint32_t index, const Instruction& instruction)
+{
+	m_cacheLine[index] = instruction;
+}

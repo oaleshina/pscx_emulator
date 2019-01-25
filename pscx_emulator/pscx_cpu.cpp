@@ -14,34 +14,58 @@ const std::vector<uint32_t>& Cpu::getInstructionsDump() const
 	return m_debugInstructions;
 }
 
-Instruction Cpu::load32(uint32_t addr) const
+template<typename T>
+Instruction Cpu::load(uint32_t addr) const
 {
-	return m_inter.load32(addr);
+	return m_inter.load<T>(addr);
 }
 
-Instruction Cpu::load16(uint32_t addr) const
+template<typename T>
+void Cpu::store(uint32_t addr, T value)
 {
-	return m_inter.load16(addr);
+	if (m_sr.isCacheIsolated())
+		return cacheMaintenance<T>(addr, value);
+	return m_inter.store<T>(addr, value);
 }
 
-Instruction Cpu::load8(uint32_t addr) const
+template<typename T>
+void Cpu::cacheMaintenance(uint32_t addr, T value)
 {
-	return m_inter.load8(addr);
-}
+	// Implementing full cache emulation requires handling many
+	// corner cases. Adding suppirt for cache invalidation which is the only
+	// use case for cache isolation.
+	CacheControl cacheControl = m_inter.getCacheControl();
 
-void Cpu::store32(uint32_t addr, uint32_t value)
-{
-	m_inter.store32(addr, value);
-}
+	if (!cacheControl.icacheEnabled())
+	{
+		LOG("Cache maintenance while instruction cache is disabled");
+		return;
+	}
 
-void Cpu::store16(uint32_t addr, uint16_t value)
-{
-	m_inter.store16(addr, value);
-}
+	if (!std::is_same<uint32_t, T>::value || value != 0)
+	{
+		LOG("Unsupported write while cache is isolated 0x" << std::hex << value);
+		return;
+	}
 
-void Cpu::store8(uint32_t addr, uint8_t value)
-{
-	m_inter.store8(addr, value);
+	uint32_t line = (addr >> 4) & 0xff;
+
+	// Fetch the cacheline for this address
+	ICacheLine& cacheLine = m_icache[line];
+	if (cacheControl.tagTestMode())
+	{
+		// In tag test mode the write invalidates the entire
+		// targeted cacheline
+		cacheLine.invalidate();
+	}
+	else
+	{
+		// Otherwise the write ends up directly in the cache
+		uint32_t index = (addr >> 2) & 3;
+
+		Instruction instruction(value);
+		cacheLine.setInstruction(index, instruction);
+	}
 }
 
 // TODO: take a look how to get back error messages.
@@ -282,7 +306,8 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	}
 
 	// Fetch instruction at PC
-	Instruction instruction = load32(m_pc);
+	//Instruction instruction = load<uint32_t>(m_pc);
+	Instruction instruction = fetchInstruction();
 	Instruction::InstructionStatus instructionStatus = instruction.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -317,6 +342,50 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	return instructionType;
 }
 
+Instruction Cpu::fetchInstruction()
+{
+	uint32_t pc = m_currentPc;
+	CacheControl cacheControl = m_inter.getCacheControl();
+
+	// KSEG1 region is never cached
+	bool kseg1 = ((pc & 0xe0000000) == 0xa0000000);
+	if (!kseg1 && cacheControl.icacheEnabled())
+	{
+		// Cache tag: bits [31:12]
+		uint32_t tag = pc & 0xfffff000;
+		// Cache line "bucket": bits [11:4]
+		uint32_t line = (pc >> 4) & 0xff;
+		// Index in the cache line: bits [3:2]
+		uint32_t index = (pc >> 2) & 3;
+
+		// Fetch the cacheline for this address
+		ICacheLine& cacheLine = m_icache[line];
+
+		// Check the tag and validity
+		if (cacheLine.getTag() != tag || cacheLine.getValidIndex() > index)
+		{
+			// Cache miss. Fetch the cacheline starting at the current index.
+			// If the index is not 0 then some words are going to remain invalid in the cacheline.
+			uint32_t currentPc = pc;
+
+			for (size_t i = index; i < 4; ++i)
+			{
+				Instruction instruction = m_inter.load<uint32_t>(currentPc);
+				cacheLine.setInstruction(i, instruction);
+				currentPc += 4;
+			}
+
+			// Set the tag and valid bits
+			cacheLine.setTagValid(pc);
+		}
+
+		// Cache line is now guaranteed to be valid
+		return cacheLine.getInstruction(index);
+	}
+	// Cache is disabled, fetch directly from memory
+	return m_inter.load<uint32_t>(pc);
+}
+
 Cpu::InstructionType Cpu::opcodeLUI(const Instruction& instruction)
 {
 	// Low 16 bits are set to 0
@@ -332,13 +401,6 @@ Cpu::InstructionType Cpu::opcodeORI(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
 {
-	if (m_sr & 0x10000)
-	{
-		// Cache is isolated, ignore write
-		LOG("Ignoring store while cache is isolated");
-		return INSTRUCTION_TYPE_CACHE_ISOLATED;
-	}
-
 	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
@@ -347,7 +409,7 @@ Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
 	// Address must be 32 bit aligned
 	if (addr % 4 == 0)
 	{
-		store32(addr, getRegisterValue(registerTargetIndex));
+		store<uint32_t>(addr, getRegisterValue(registerTargetIndex));
 	}
 	else
 	{
@@ -461,7 +523,7 @@ Cpu::InstructionType Cpu::opcodeMFC0(const Instruction& instruction)
 	{
 	case 12:
 		// Load data only from $cop0_12 register
-		m_load = RegisterData(cpuRegister, m_sr);
+		m_load = RegisterData(cpuRegister, m_sr.getStatusRegister());
 		break;
 	// $cop0_13 CAUSE
 	case 13:
@@ -519,13 +581,6 @@ Cpu::InstructionType Cpu::opcodeADDI(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 {
-	if (m_sr & 0x10000)
-	{
-		// Cache is isolated, ignore write
-		LOG("Ignoring load while cache is isolated");
-		return INSTRUCTION_TYPE_CACHE_ISOLATED;
-	}
-
 	uint32_t signExtendedImmediateValue = instruction.getSignExtendedImmediateValue();
 	RegisterIndex registerTargetIndex   = instruction.getRegisterTargetIndex();
 	RegisterIndex registerSourceIndex   = instruction.getRegisterSourceIndex();
@@ -535,7 +590,7 @@ Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 	// Address must be 32 bit aligned
 	if (addr % 4 == 0)
 	{
-		Instruction instructionLoaded = load32(addr);
+		Instruction instructionLoaded = load<uint32_t>(addr);
 		Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 		if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 			instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -577,13 +632,6 @@ Cpu::InstructionType Cpu::opcodeADDU(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 {
-	if (m_sr & 0x10000)
-	{
-		// Cache is isolated, ignore write
-		LOG("Ignoring store while cache is isolated");
-		return INSTRUCTION_TYPE_CACHE_ISOLATED;
-	}
-
 	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
@@ -592,7 +640,7 @@ Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 	// Address must be 16 bit aligned
 	if (addr % 2 == 0)
 	{
-		store16(addr, getRegisterValue(registerTargetIndex));
+		store<uint16_t>(addr, getRegisterValue(registerTargetIndex));
 	}
 	else
 	{
@@ -630,19 +678,12 @@ Cpu::InstructionType Cpu::opcodeANDI(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
 {
-	if (m_sr & 0x10000)
-	{
-		// Cache is isolated, ignore write
-		LOG("Ignoring store while cache is isolated");
-		return INSTRUCTION_TYPE_CACHE_ISOLATED;
-	}
-
 	RegisterIndex registerSourceIndex = instruction.getRegisterSourceIndex();
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
 	uint32_t addr = getRegisterValue(registerSourceIndex) + instruction.getSignExtendedImmediateValue();
 
-	store8(addr, getRegisterValue(registerTargetIndex));
+	store<uint8_t>(addr, getRegisterValue(registerTargetIndex));
 
 	return INSTRUCTION_TYPE_SB;
 }
@@ -662,7 +703,7 @@ Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 
 	uint32_t addr = getRegisterValue(registerSourceIndex) + instruction.getSignExtendedImmediateValue();
 
-	Instruction instructionLoaded = load8(addr);
+	Instruction instructionLoaded = load<uint8_t>(addr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -735,7 +776,7 @@ Cpu::InstructionType Cpu::opcodeLBU(const Instruction& instruction)
 
 	uint32_t addr = getRegisterValue(registerSourceIndex) + instruction.getSignExtendedImmediateValue();
 
-	Instruction instructionLoaded = load8(addr);
+	Instruction instructionLoaded = load<uint8_t>(addr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -899,21 +940,8 @@ Cpu::InstructionType Cpu::opcodeMFHI(const Instruction& instruction)
 
 void Cpu::exception(Exception cause)
 {
-	// Exception handler address depends on the 'BEV' bit:
-	uint32_t handler = m_sr & (1 << 22) ? 0xbfc00180 : 0x80000080;
-
-	// Shift bits [5:0] of 'SR' two places to the left.
-	// Those bits are three pairs of Interrupt Enable/User
-	// Mode bits behaving like a stack 3 entries deep.
-	// Entering an exception pushes a pair of zeros
-	// by left shifting the stack which disables
-	// interrupts and puts the CPU in kernel mode.
-	// The original third entry is discarded ( it's up
-	// to the kernel to handle more than two recursive
-	// exception levels ).
-	uint32_t mode = m_sr & 0x3f;
-	m_sr &= (~0x3f);
-	m_sr |= (mode << 2) & 0x3f;
+	// Update the status register
+	m_sr.enterException();
 
 	// Update 'CAUSE' register with the exception code ( bits [6:2] )
 	m_cause = ((uint32_t)cause) << 2;
@@ -931,7 +959,7 @@ void Cpu::exception(Exception cause)
 
 	// Exceptions don't have a branch delay, we jump directly
 	// into the handler
-	m_pc = handler;
+	m_pc = m_sr.exceptionHandler();
 	m_nextPc = m_pc + 4;
 }
 
@@ -964,11 +992,7 @@ Cpu::InstructionType Cpu::opcodeRFE(const Instruction& instruction)
 		return INSTRUCTION_TYPE_UNKNOWN;
 	}
 
-	// Restore the pre-exception mode by shifting the Interrupt
-	// Enable/User Mode stack back to its original position.
-	uint32_t mode = m_sr & 0x3f;
-	m_sr &= (~0x3f);
-	m_sr |= mode >> 2;
+	m_sr.returnFromException();
 
 	return INSTRUCTION_TYPE_RFE;
 }
@@ -980,7 +1004,7 @@ Cpu::InstructionType Cpu::opcodeLHU(const Instruction& instruction)
 	// Address must be 16 bit aligned
 	if (addr % 2 == 0)
 	{
-		Instruction instructionLoaded = load16(addr);
+		Instruction instructionLoaded = load<uint16_t>(addr);
 		m_load = RegisterData(instruction.getRegisterTargetIndex(), instructionLoaded.getInstructionOpcode());
 	}
 	else
@@ -1011,7 +1035,7 @@ Cpu::InstructionType Cpu::opcodeLH(const Instruction& instruction)
 	uint32_t addr = getRegisterValue(registerSourceIndex) + signExtendedImmediateValue;
 
 	// Cast as i16 to force sign extension
-	Instruction instructionLoaded = load16(addr);
+	Instruction instructionLoaded = load<uint16_t>(addr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -1167,7 +1191,7 @@ Cpu::InstructionType Cpu::opcodeLWL(const Instruction& instruction)
 	// Next we load the *aligned* word containing the first addressed byte
 	uint32_t alignedAddr = addr & ~0x3;
 
-	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -1216,7 +1240,7 @@ Cpu::InstructionType Cpu::opcodeLWR(const Instruction& instruction)
 	// Next we load the *aligned* word containing the first addressed byte
 	uint32_t alignedAddr = addr & ~0x3;
 
-	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -1262,7 +1286,7 @@ Cpu::InstructionType Cpu::opcodeSWL(const Instruction& instruction)
 	uint32_t alignedAddr = addr & ~0x3;
 
 	// Load the current value for the aligned word at the target address
-	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -1289,7 +1313,7 @@ Cpu::InstructionType Cpu::opcodeSWL(const Instruction& instruction)
 		break;
 	}
 
-	store32(alignedAddr, mem);
+	store<uint32_t>(alignedAddr, mem);
 	return INSTRUCTION_TYPE_SWL;
 }
 
@@ -1305,7 +1329,7 @@ Cpu::InstructionType Cpu::opcodeSWR(const Instruction& instruction)
 	uint32_t alignedAddr = addr & ~0x3;
 
 	// Load the current value for the aligned word at the target address
-	Instruction instructionLoaded = load32(alignedAddr);
+	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
 	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
 		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
@@ -1332,7 +1356,7 @@ Cpu::InstructionType Cpu::opcodeSWR(const Instruction& instruction)
 		break;
 	}
 
-	store32(alignedAddr, mem);
+	store<uint32_t>(alignedAddr, mem);
 	return INSTRUCTION_TYPE_SWR;
 }
 

@@ -3,38 +3,34 @@
 #include <iostream>
 
 Interconnect::Interconnect(Bios bios) :
-	m_bios(bios)
+	m_bios(bios),
+	m_cacheControl(0x0)
 {
 }
 
-Instruction Interconnect::load32(uint32_t addr) const
+template<typename T>
+Instruction Interconnect::load(uint32_t addr) const
 {
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
 	uint32_t offset = 0;
-	if (addr & 0b11)
-	{
-		LOG("Unaligned load32 address 0x" << std::hex << addr);
-		return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS);
-	}
-
 	if (BIOS.contains(targetPeripheralAddress, offset))
-		return Instruction(m_bios.load32(offset));
+		return Instruction(m_bios.load<T>(offset));
 
 	if (RAM.contains(targetPeripheralAddress, offset))
-		return Instruction(m_ram.load32(offset));
+		return Instruction(m_ram.load<T>(offset));
 
 	if (MEM_CONTROL.contains(targetPeripheralAddress, offset))
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
 
 	if (SPU.contains(targetPeripheralAddress, offset))
-		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
+		return Instruction(0);
 
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
 
 	if (EXPANSION_1.contains(targetPeripheralAddress, offset))
-		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
+		return Instruction(~0);
 
 	if (EXPANSION_2.contains(targetPeripheralAddress, offset))
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
@@ -47,7 +43,7 @@ Instruction Interconnect::load32(uint32_t addr) const
 
 	if (DMA.contains(targetPeripheralAddress, offset))
 	{
-		return Instruction(getDmaRegister(offset));
+		return Instruction(getDmaRegister<T>(offset));
 	}
 
 	if (GPU.contains(targetPeripheralAddress, offset))
@@ -56,7 +52,7 @@ Instruction Interconnect::load32(uint32_t addr) const
 
 		// GPUSTAT: set bit 26, 27, 28 to signal that the GPU is ready for DMA and CPU access.
 		// This way the BIOS won't dead lock waiting for an event that will never come
-		if (offset == 0x0)
+		/*if (offset == 0x0)
 		{
 			return Instruction(m_gpu.getReadRegister());
 		}
@@ -65,7 +61,8 @@ Instruction Interconnect::load32(uint32_t addr) const
 			return Instruction(m_gpu.getStatusRegister());
 		}
 
-		return Instruction(0);
+		return Instruction(0);*/
+		return Instruction(m_gpu.load<T>(offset));
 	}
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
@@ -73,66 +70,18 @@ Instruction Interconnect::load32(uint32_t addr) const
 		LOG("Unhandled read from the timer register 0x" << std::hex << offset);
 		return Instruction(0);
 	}
-	
+
 	LOG("Unhandled fetch32 at address 0x" << std::hex << addr);
 	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
 }
 
-Instruction Interconnect::load16(uint32_t addr) const
+template Instruction Interconnect::load<uint32_t>(uint32_t) const;
+template Instruction Interconnect::load<uint16_t>(uint32_t) const;
+template Instruction Interconnect::load<uint8_t> (uint32_t) const;
+
+template<typename T>
+void Interconnect::store(uint32_t addr, T value)
 {
-	uint32_t targetPeripheralAddress = maskRegion(addr);
-
-	uint32_t offset = 0;
-	if (SPU.contains(targetPeripheralAddress, offset))
-	{
-		LOG("Unhandled read from SPU register 0x" << std::hex << targetPeripheralAddress);
-		return Instruction(0);
-	}
-
-	if (RAM.contains(targetPeripheralAddress, offset))
-	{
-		return Instruction(m_ram.load16(offset));
-	}
-
-	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
-	{
-		LOG("IRQ control read 0x" << std::hex << offset);
-		return Instruction(0);
-	}
-
-	LOG("Unhandled fetch16 at address 0x" << std::hex << addr);
-	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
-}
-
-Instruction Interconnect::load8(uint32_t addr) const
-{
-	uint32_t targetPeripheralAddress = maskRegion(addr);
-
-	uint32_t offset = 0;
-	if (RAM.contains(targetPeripheralAddress, offset))
-		return Instruction(m_ram.load8(offset));
-
-	if (BIOS.contains(targetPeripheralAddress, offset))
-		return Instruction(m_bios.load8(offset));
-
-	if (EXPANSION_1.contains(targetPeripheralAddress, offset))
-	{
-		// No expansion implemented
-		return Instruction(0xff);
-	}
-
-	LOG("Unhandled fetch8 at address 0x" << std::hex << addr);
-	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
-}
-
-void Interconnect::store32(uint32_t addr, uint32_t value)
-{
-	if (addr & 0b11)
-	{
-		LOG("Unaligned store32 address 0x" << std::hex << addr);
-		return;
-	}
-
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
 	uint32_t offset = 0;
@@ -169,7 +118,7 @@ void Interconnect::store32(uint32_t addr, uint32_t value)
 
 	if (RAM.contains(targetPeripheralAddress, offset))
 	{
-		m_ram.store32(offset, value);
+		m_ram.store<T>(offset, value);
 		return;
 	}
 
@@ -181,7 +130,14 @@ void Interconnect::store32(uint32_t addr, uint32_t value)
 
 	if (CACHE_CONTROL.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Ignore store to CACHE_CONTROL register for now");
+		//LOG("Ignore store to CACHE_CONTROL register for now");
+		if (!std::is_same<uint32_t, T>::value)
+		{
+			LOG("Unhandled cache control access");
+			return;
+		}
+
+		m_cacheControl = CacheControl(value);
 		return;
 	}
 
@@ -193,83 +149,25 @@ void Interconnect::store32(uint32_t addr, uint32_t value)
 
 	if (DMA.contains(targetPeripheralAddress, offset))
 	{
-		setDmaRegister(offset, value);
+		setDmaRegister<T>(offset, value);
 		return;
 	}
 
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
-		if (offset == 0x0)
-		{
-			m_gpu.gp0(value);
-		}
-		else if (offset == 0x4)
-		{
-			m_gpu.gp1(value);
-		}
-		else
-		{
-			LOG("GPU write 0x" << std::hex << offset << " 0x" << value);
-		}
+		m_gpu.store<T>(offset, value);
 		return;
 	}
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
 	{
 		LOG("Unhandled write to timer register 0x" << std::hex << offset << " 0x" << value);
-		int a = 1;
 		return;
 	}
 
-	LOG("Unhandled store32 into address 0x" << std::hex << targetPeripheralAddress);
-}
-
-void Interconnect::store16(uint32_t addr, uint16_t value)
-{
-	if (addr & 1)
-	{
-		LOG("Unaligned store16 address 0x" << std::hex << addr);
-		return;
-	}
-
-	uint32_t targetPeripheralAddress = maskRegion(addr);
-
-	uint32_t offset = 0;
 	if (SPU.contains(targetPeripheralAddress, offset))
 	{
 		LOG("Unaligned write to SPU register 0x" << std::hex << offset);
-		return;
-	}
-	
-	if (TIMERS.contains(targetPeripheralAddress, offset))
-	{
-		LOG("Unhandled write to timer register 0x" << std::hex << offset);
-		return;
-	}
-
-	if (RAM.contains(targetPeripheralAddress, offset))
-	{
-		m_ram.store16(offset, value);
-		return;
-	}
-
-	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
-	{
-		LOG("IRQ control write 0x" << std::hex << offset << " 0x" << value);
-		return;
-	}
-
-	LOG("Unhandled store16 into address 0x" << std::hex << targetPeripheralAddress);
-}
-
-void Interconnect::store8(uint32_t addr, uint8_t value)
-{
-	uint32_t targetPeripheralAddress = maskRegion(addr);
-
-	uint32_t offset = 0;
-	if (RAM.contains(targetPeripheralAddress, offset))
-	{
-		m_ram.store8(offset, value);
 		return;
 	}
 
@@ -285,11 +183,22 @@ void Interconnect::store8(uint32_t addr, uint8_t value)
 		return;
 	}
 
-	LOG("Unhandled store8 into address 0x" << std::hex << targetPeripheralAddress);
+	LOG("Unhandled store32 into address 0x" << std::hex << targetPeripheralAddress);
 }
 
-uint32_t Interconnect::getDmaRegister(uint32_t offset) const
+template void Interconnect::store<uint32_t>(uint32_t, uint32_t);
+template void Interconnect::store<uint16_t>(uint32_t, uint16_t);
+template void Interconnect::store<uint8_t> (uint32_t, uint8_t );
+
+template<typename T>
+T Interconnect::getDmaRegister(uint32_t offset) const
 {
+	if (!std::is_same<uint32_t, T>::value)
+	{
+		LOG("Unhandled DMA load");
+		return ~0;
+	}
+
 	uint32_t major = (offset & 0x70) >> 4;
 	uint32_t minor = offset & 0xf;
 
@@ -335,8 +244,15 @@ uint32_t Interconnect::getDmaRegister(uint32_t offset) const
 	return ~0;
 }
 
-void Interconnect::setDmaRegister(uint32_t offset, uint32_t value)
+template<typename T>
+void Interconnect::setDmaRegister(uint32_t offset, T value)
 {
+	if (!std::is_same<uint32_t, T>::value)
+	{
+		LOG("Unhandled DMA store");
+		return;
+	}
+
 	uint32_t major = (offset & 0x70) >> 4;
 	uint32_t minor = offset & 0xf;
 
@@ -434,7 +350,7 @@ void Interconnect::doDmaBlock(Port port)
 		{
 		case Direction::DIRECTION_FROM_RAM:
 		{
-			uint32_t srcWord = m_ram.load32(currentAddr);
+			uint32_t srcWord = m_ram.load<uint32_t>(currentAddr);
 
 			if (port == Port::PORT_GPU)
 			{
@@ -463,7 +379,7 @@ void Interconnect::doDmaBlock(Port port)
 				LOG("Unhandled DMA source port 0x" << std::hex << port);
 				return;
 			}
-			m_ram.store32(currentAddr, srcWord);
+			m_ram.store<uint32_t>(currentAddr, srcWord);
 		}
 		}
 		addr += increment;
@@ -494,14 +410,14 @@ void Interconnect::doDmaLinkedList(Port port)
 	{
 		// In linked list mode, each entry starts with a "header" word. The high byte contains
 		// the number of words in the "packet" ( not counting the header word )
-		uint32_t header = m_ram.load32(addr);
+		uint32_t header = m_ram.load<uint32_t>(addr);
 
 		uint32_t remsz = header >> 24;
 		while (remsz > 0)
 		{
 			addr = (addr + 4) & 0x1ffffc;
 
-			uint32_t command = m_ram.load32(addr);
+			uint32_t command = m_ram.load<uint32_t>(addr);
 			
 			// Send command to the GPU
 			m_gpu.gp0(command);
@@ -518,4 +434,9 @@ void Interconnect::doDmaLinkedList(Port port)
 		addr = header & 0x1ffffc;
 	}
 	channel.done();
+}
+
+CacheControl Interconnect::getCacheControl() const
+{
+	return m_cacheControl;
 }

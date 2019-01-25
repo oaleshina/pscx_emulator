@@ -24,9 +24,6 @@ struct Bios
 	// Load a BIOS image from the file that is located in 'path'
 	BiosState loadBios(std::string path);
 
-	// Fetch the 32 bit little endian word at 'offset'
-	uint32_t load32(uint32_t offset) const;
-
-	// Fetch byte at 'offset'
-	uint8_t load8(uint32_t offset) const;
+	template<typename T>
+	T load(uint32_t offset) const;
 };

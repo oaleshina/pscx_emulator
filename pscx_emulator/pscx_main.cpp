@@ -1,12 +1,12 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+
+#include "SDL.h"
 #include "pscx_bios.h"
 #include "pscx_cpu.h"
 #include "pscx_interconnect.h"
-
-#include <iostream>
-#include <fstream>
-
-#include <vector>
-#include <string>
 
 struct ArgSetParser
 {
@@ -140,7 +140,32 @@ int main(int argc, char** argv)
 	Interconnect interconnect(bios);
 	Cpu cpu(interconnect);
 
-	while (cpu.runNextInstuction() != Cpu::INSTRUCTION_TYPE_UNKNOWN);
+	bool done = false;
+
+	while (!done)
+	{
+		for (size_t i = 0; i < 10e6; ++i)
+			cpu.runNextInstuction();
+
+		SDL_Event event;
+		while (SDL_PollEvent(&event))
+		{
+			if (event.type == SDL_QUIT)
+				done = true;
+			else if (event.type == SDL_WINDOWEVENT)
+				break;
+			else if (event.type == SDL_KEYDOWN)
+			{
+				switch (event.key.keysym.sym)
+				{
+				case SDLK_ESCAPE:
+					done = true;
+				}
+			}
+		}
+	}
+
+	//SDL_Quit();
 
 	if (dumpInstructionsAndRegsToFile)
 		generateDumpOutputFn(cpu);

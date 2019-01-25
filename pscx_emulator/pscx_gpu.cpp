@@ -1,5 +1,50 @@
 #include "pscx_gpu.h"
 
+template<typename T>
+T Gpu::load(uint32_t offset) const
+{
+	if (!std::is_same<uint32_t, T>::value)
+	{
+		LOG("Unhandled GPU load");
+		return ~0;
+	}
+
+	// GPUSTAT: set bit 26, 27, 28 to signal that the GPU is ready for DMA and CPU access.
+	// This way the BIOS won't dead lock waiting for an event that will never come
+	if (offset == 0x0)
+		return getReadRegister();
+	if (offset == 0x4)
+		return getStatusRegister();
+	
+	return 0;
+}
+
+template uint32_t Gpu::load<uint32_t>(uint32_t) const;
+template uint16_t Gpu::load<uint16_t>(uint32_t) const;
+template uint8_t  Gpu::load<uint8_t> (uint32_t) const;
+
+template<typename T>
+void Gpu::store(uint32_t offset, T value)
+{
+	if (!std::is_same<uint32_t, T>::value)
+	{
+		LOG("Unhandled GPU store");
+		return;
+	}
+
+	if (offset == 0x0)
+		gp0(value);
+	else if (offset == 0x4)
+		gp1(value);
+	else
+		LOG("GPU write 0x" << std::hex << offset << " 0x" << value);
+	return;
+}
+
+template void Gpu::store<uint32_t>(uint32_t, uint32_t);
+template void Gpu::store<uint16_t>(uint32_t, uint16_t);
+template void Gpu::store<uint8_t> (uint32_t, uint8_t );
+
 uint32_t Gpu::getStatusRegister() const
 {
 	uint32_t statusRegister = 0;
@@ -387,9 +432,10 @@ void Gpu::gp0DrawingOffset()
 
 	// Values are 11 bit two's complement signed values, we need to shift
 	// the value to 16 bit to force sign extension
-	m_drawingXOffset = ((int16_t)(x << 5)) >> 5;
-	m_drawingYOffset = ((int16_t)(y << 5)) >> 5;
+	int16_t offsetX = ((int16_t)(x << 5)) >> 5;
+	int16_t offsetY = ((int16_t)(y << 5)) >> 5;
 
+	m_renderer.setDrawOffset(offsetX, offsetY);
 	m_renderer.display();
 }
 
@@ -430,8 +476,6 @@ void Gpu::gp1Reset(uint32_t value)
 	m_drawingAreaTop = 0x0;
 	m_drawingAreaRight = 0x0;
 	m_drawingAreaBottom = 0x0;
-	m_drawingXOffset = 0x0;
-	m_drawingYOffset = 0x0;
 	m_forceSetMaskBit = false;
 	m_preserveMaskedPixels = false;
 
@@ -450,6 +494,8 @@ void Gpu::gp1Reset(uint32_t value)
 	m_displayLineStart = 0x10;
 	m_displayLineEnd = 0x100;
 	m_displayDepth = DisplayDepth::DISPLAY_DEPTH_15_BITS;
+
+	m_renderer.setDrawOffset(0, 0);
 
 	gp1ResetCommandBuffer();
 	gp1AcknowledgeIrq();

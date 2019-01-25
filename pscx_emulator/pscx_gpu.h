@@ -157,6 +157,12 @@ struct Gpu
 		m_gp0Mode(Gp0Mode::GP0_MODE_COMMAND)
 	{}
 
+	template<typename T>
+	T load(uint32_t offset) const;
+
+	template<typename T>
+	void store(uint32_t offset, T value);
+
 	// Retrieve value of the status register
 	uint32_t getStatusRegister() const;
 
@@ -326,12 +332,6 @@ private:
 
 	// Bottom-most line of drawing area
 	uint16_t m_drawingAreaBottom;
-
-	// Horizontal drawing offset applied to all vertex
-	int16_t m_drawingXOffset;
-
-	// Vertical drawing offset applied to all vertex
-	int16_t m_drawingYOffset;
 
 	// First column of the display area in VRAM
 	uint16_t m_displayVramXStart;
