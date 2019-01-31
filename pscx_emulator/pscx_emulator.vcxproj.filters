@@ -54,6 +54,9 @@
     <ClCompile Include="pscx_renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pscx_timekeeper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pscx_bios.h">
@@ -87,6 +90,9 @@
       <Filter>gl</Filter>
     </ClInclude>
     <ClInclude Include="pscx_renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_timekeeper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

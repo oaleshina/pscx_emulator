@@ -3,6 +3,9 @@
 #include "pscx_common.h"
 #include "pscx_memory.h"
 #include "pscx_renderer.h"
+#include "pscx_timekeeper.h"
+
+const Cycles CLOCK_RATIO_FRAC = 0x10000;
 
 // Depth of the pixel values in a texture page
 enum TextureDepth
@@ -86,6 +89,14 @@ enum DmaDirection
 	DMA_DIRECTION_VRAM_TO_CPU
 };
 
+// There are a few hardware differences between PAL and NTSC consoles,
+// for instance runs slightly slower on PAL consoles.
+enum HardwareType
+{
+	HARDWARE_TYPE_NTSC,
+	HARDWARE_TYPE_PAL
+};
+
 // Buffer holding multi-word fixed-length GP0 command parameters
 struct CommandBuffer
 {
@@ -137,12 +148,22 @@ struct Gpu
 	Gpu() :
 		m_pageBaseX(0x0),
 		m_pageBaseY(0x0),
+		m_rectangleTextureXFlip(false),
+		m_rectangleTextureYFlip(false),
 		m_semiTransparency(0x0),
 		m_textureDepth(TextureDepth::TEXTURE_DEPTH_4_BIT),
+		m_textureWindowXMask(0x0),
+		m_textureWindowYMask(0x0),
+		m_textureWindowXOffset(0x0),
+		m_textureWindowYOffset(0x0),
 		m_dithering(false),
 		m_drawToDisplay(false),
 		m_forceSetMaskBit(false),
 		m_preserveMaskedPixels(false),
+		m_drawingAreaLeft(0x0),
+		m_drawingAreaTop(0x0),
+		m_drawingAreaRight(0x0),
+		m_drawingAreaBottom(0x0),
 		m_field(Field::FIELD_TOP),
 		m_textureDisable(false),
 		m_hres(HorizontalRes::createFromFields(0x0, 0x0)),
@@ -151,17 +172,51 @@ struct Gpu
 		m_displayDepth(DisplayDepth::DISPLAY_DEPTH_15_BITS),
 		m_interlaced(false),
 		m_displayDisabled(true),
-		m_interrupt(false),
+		m_displayVramXStart(0x0),
+		m_displayVramYStart(0x0),
+		m_displayHorizStart(0x200),
+		m_displayHorizEnd(0xc00),
+		m_displayLineStart(0x10),
+		m_displayLineEnd(0x100),
+		//m_interrupt(false),
 		m_dmaDirection(DmaDirection::DMA_DIRECTION_OFF),
 		m_gp0WordsRemaining(0x0),
-		m_gp0Mode(Gp0Mode::GP0_MODE_COMMAND)
+		//m_gp0CommandMethod(Gpu::gp0Nop),
+		m_gp0Mode(Gp0Mode::GP0_MODE_COMMAND),
+		m_gp0Interrupt(false),
+		m_vblankInterrupt(false),
+		m_gpuClockFrac(0x0),
+		m_displayLine(0x0),
+		m_displayLineTick(0x0),
+		m_hardwareType(HardwareType::HARDWARE_TYPE_NTSC)
 	{}
 
-	template<typename T>
-	T load(uint32_t offset) const;
+	// Return the number of GPU clock cycles in a line and number of
+	// lines in a frame (or field for interlaced output) depending on
+	// the configured video mode
+	std::pair<uint16_t, uint16_t> getVModeTimings() const;
+
+	// Return the GPU to CPU clock ratio. The value is multiplied by
+	// CLOCK_RATIO_FRAC to get a precise fixed point value
+	Cycles gpuToCpuClockRatio() const;
+
+	// Update the GPU state to its current status
+	void sync(TimeKeeper& timeKeeper);
+
+	// Predict when the next "forced" sync should take place
+	void predictNextSync(TimeKeeper timeKeeper);
+
+	// Return true if we're currently in the video blanking period
+	bool inVblank() const;
+
+	// Return the index of the currently displayed VRAM line
+	uint16_t displayedVramLine() const;
 
 	template<typename T>
-	void store(uint32_t offset, T value);
+	T load(TimeKeeper& timeKeeper, uint32_t offset);
+
+	template<typename T>
+	void store(TimeKeeper& timeKeeper, uint32_t offset, T value);
 
 	// Retrieve value of the status register
 	uint32_t getStatusRegister() const;
@@ -173,7 +228,7 @@ struct Gpu
 	void gp0(uint32_t value);
 
 	// Handle writes to the GP1 command register
-	void gp1(uint32_t value);
+	void gp1(uint32_t value, TimeKeeper& timeKeeper);
 
 	// GP0(0x0): NOP
 	void gp0Nop();
@@ -218,7 +273,7 @@ struct Gpu
 	void gp0MaskBitSetting();
 
 	// GP1(0x0): Soft reset
-	void gp1Reset(uint32_t value);
+	void gp1Reset(uint32_t value, TimeKeeper& timeKeeper);
 
 	// Gp1(0x01): Reset Command Buffer
 	void gp1ResetCommandBuffer();
@@ -239,10 +294,10 @@ struct Gpu
 	void gp1DisplayHorizontalRange(uint32_t value);
 
 	// GP1(0x07): Display Vertical Range
-	void gp1DisplayVerticalRange(uint32_t value);
+	void gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper);
 
 	// GP1(0x08): Display Mode
-	void gp1DisplayMode(uint32_t value);
+	void gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper);
 
 private:
 	// Texture page base X coordinate ( 4 bits, 64 byte increment )
@@ -296,7 +351,7 @@ private:
 	bool m_displayDisabled;
 
 	// True when the interrupt is active
-	bool m_interrupt;
+	// bool m_interrupt;
 
 	// DMA request direction
 	DmaDirection m_dmaDirection;
@@ -365,4 +420,23 @@ private:
 
 	// OpenGL renderer
 	Renderer m_renderer;
+
+	// True when the GP0 interrupt has been requested
+	bool m_gp0Interrupt;
+
+	// True when the VBLANK interrupt is high
+	bool m_vblankInterrupt;
+
+	// Fractional GPU cycle remainder resulting from the CPU
+	// clock/GPU clock time conversion.
+	uint16_t m_gpuClockFrac;
+
+	// Currently displayed video output line
+	uint16_t m_displayLine;
+
+	// Current GPU clock tick for the current line
+	uint16_t m_displayLineTick;
+
+	// Hardware type (PAL or NTSC)
+	HardwareType m_hardwareType;
 };

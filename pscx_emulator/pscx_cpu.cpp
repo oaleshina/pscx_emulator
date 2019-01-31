@@ -15,9 +15,9 @@ const std::vector<uint32_t>& Cpu::getInstructionsDump() const
 }
 
 template<typename T>
-Instruction Cpu::load(uint32_t addr) const
+Instruction Cpu::load(uint32_t addr)
 {
-	return m_inter.load<T>(addr);
+	return m_inter.load<T>(m_timeKeeper, addr);
 }
 
 template<typename T>
@@ -25,7 +25,7 @@ void Cpu::store(uint32_t addr, T value)
 {
 	if (m_sr.isCacheIsolated())
 		return cacheMaintenance<T>(addr, value);
-	return m_inter.store<T>(addr, value);
+	return m_inter.store<T>(m_timeKeeper, addr, value);
 }
 
 template<typename T>
@@ -71,6 +71,9 @@ void Cpu::cacheMaintenance(uint32_t addr, T value)
 // TODO: take a look how to get back error messages.
 Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 {
+	// Simulate instruction execution time.
+	m_timeKeeper.tick(1);
+
 	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
 
 	switch (instruction.getInstructionCode())
@@ -295,6 +298,9 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::runNextInstuction()
 {
+	// Synchronize the peripherals
+	m_inter.sync(m_timeKeeper);
+
 	// Save the address of the current instruction to save in 'EPC' in the case of an exception.
 	m_currentPc = m_pc;
 
@@ -368,9 +374,15 @@ Instruction Cpu::fetchInstruction()
 			// If the index is not 0 then some words are going to remain invalid in the cacheline.
 			uint32_t currentPc = pc;
 
+			// Fetching takes 3 cycles + 1 per instruction on
+			// average.
+			m_timeKeeper.tick(3);
+
 			for (size_t i = index; i < 4; ++i)
 			{
-				Instruction instruction = m_inter.load<uint32_t>(currentPc);
+				m_timeKeeper.tick(1);
+
+				Instruction instruction = m_inter.loadInstruction<uint32_t>(currentPc);
 				cacheLine.setInstruction(i, instruction);
 				currentPc += 4;
 			}
@@ -382,8 +394,11 @@ Instruction Cpu::fetchInstruction()
 		// Cache line is now guaranteed to be valid
 		return cacheLine.getInstruction(index);
 	}
-	// Cache is disabled, fetch directly from memory
-	return m_inter.load<uint32_t>(pc);
+	// Cache is disabled, fetch directly from memory.
+	// Takes 4 cycles on average.
+	m_timeKeeper.tick(4);
+
+	return m_inter.loadInstruction<uint32_t>(pc);
 }
 
 Cpu::InstructionType Cpu::opcodeLUI(const Instruction& instruction)

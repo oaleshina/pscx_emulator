@@ -1,13 +1,173 @@
 #include "pscx_gpu.h"
 
+std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
+{
+	// The number of ticks per line is an estimate using the
+	// average line length recorded by the timer1 using the
+	// "hsync" clock source.
+	if (m_vmode == VMode::VMODE_NTSC)
+		return std::make_pair(3412, 263);
+	return std::make_pair(3404, 314); // VMode::Pal
+}
+
+Cycles Gpu::gpuToCpuClockRatio() const
+{
+	// First we convert the delta into GPU clock periods.
+	// CPU clock in MHz
+	float cpuClock = 33.8685f;
+	
+	// GPU clock in MHz
+	float gpuClock = 53.20f; // HardwareType::HARDWARE_TYPE_PAL
+	if (m_hardwareType == HardwareType::HARDWARE_TYPE_NTSC)
+		gpuClock = 53.69f;
+
+	// Clock ratio shifted 16 bits to the left
+	return (gpuClock / cpuClock) * (float)CLOCK_RATIO_FRAC;
+}
+
+void Gpu::sync(TimeKeeper& timeKeeper)
+{
+	Cycles delta = timeKeeper.sync(Peripheral::PERIPHERAL_GPU);
+
+	// Convert delta in GPU time, adding the leftover from the last time
+	delta = (Cycles)m_gpuClockFrac + delta * gpuToCpuClockRatio();
+
+	// The 16 low bits are the new fractional part
+	m_gpuClockFrac = delta;
+
+	// Convert delta back to integer
+	delta >>= 16;
+
+	// Compute the current line and posiition within the line
+	std::pair<uint16_t, uint16_t> vModeTimings = getVModeTimings();
+
+	Cycles ticksPerLine = vModeTimings.first;
+	Cycles linesPerFrame = vModeTimings.second;
+
+	Cycles lineTick = (Cycles)m_displayLineTick + delta;
+	Cycles line = (Cycles)m_displayLine + lineTick / ticksPerLine;
+
+	m_displayLineTick = lineTick % ticksPerLine;
+
+	m_displayLine = line;
+	if (line > linesPerFrame)
+	{
+		// New frame
+		if (m_interlaced)
+		{
+			// Update the field
+			Cycles nframes = line / linesPerFrame;
+
+			m_field = Field::FIELD_BOTTOM;
+			if ((nframes + (Cycles)m_field) & 1)
+				m_field = Field::FIELD_TOP;
+		}
+		m_displayLine = line % linesPerFrame;
+	}
+
+	bool vblankInterrupt = inVblank();
+	if (!m_vblankInterrupt && vblankInterrupt)
+	{
+		// Rising edge of the vblank interrupt, should trigger an interrupt
+		// in the controller
+		LOG("GPU interrupt");
+	}
+
+	if (m_vblankInterrupt && !vblankInterrupt)
+	{
+		// End of vertical blanking, probably as a good place as
+		// any to update the display
+		m_renderer.display();
+	}
+
+	m_vblankInterrupt = vblankInterrupt;
+	predictNextSync(timeKeeper);
+}
+
+void Gpu::predictNextSync(TimeKeeper timeKeeper)
+{
+	std::pair<uint16_t, uint16_t> vModeTimings = getVModeTimings();
+
+	Cycles ticksPerLine = vModeTimings.first;
+	Cycles linesPerFrame = vModeTimings.second;
+
+	Cycles delta = 0;
+
+	Cycles currentLine = m_displayLine;
+
+	Cycles displayLineStart = m_displayLineStart;
+	Cycles displayLineEnd = m_displayLineEnd;
+
+	// Number of ticks to get to the start of the next line
+	delta += (ticksPerLine - (Cycles)m_displayLineTick);
+
+	// The various -1 in the next formulas are because we start
+	// counting at line 0. Without them we'd go one line too far.
+	if (currentLine >= displayLineEnd)
+	{
+		// We're in the vertical blanking at the end of the frame.
+		// We want to synchronize at the end of the blanking at the
+		// beginning of the next frame.
+
+		// Number of ticks to get to the end of the frame
+		delta += (linesPerFrame - currentLine) * ticksPerLine;
+
+		// Number of ticks to get to the end og vblank in the next frame
+		delta += (displayLineStart - 1) * ticksPerLine;
+	}
+	else if (currentLine < displayLineStart)
+	{
+		// We're in the verical blanking at the beginning of the frame.
+		// We want to synchronize at the end of the blanking for the current frame.
+
+		delta += (displayLineStart - 1 - currentLine) * ticksPerLine;
+	}
+	else
+	{
+		// We're in the active video, we want to synchronize at the beginning
+		// of the vertical blanking period.
+		delta += (displayLineEnd - 1 - currentLine) * ticksPerLine;
+	}
+
+	// Convert delta in CPU clock periods.
+	delta *= CLOCK_RATIO_FRAC;
+	// Remove the current fractiona; cycle to be more accurate.
+	delta -= (Cycles)m_gpuClockFrac;
+
+	// Divide by the ratio while always rounding up to make sure
+	// we're never triggered too early.
+	Cycles ratio = gpuToCpuClockRatio();
+	delta = (delta + ratio - 1) / ratio;
+
+	timeKeeper.setNextSyncDelta(Peripheral::PERIPHERAL_GPU, delta);
+}
+
+bool Gpu::inVblank() const
+{
+	return m_displayLine < m_displayLineStart || m_displayLine >= m_displayLineEnd;
+}
+
+uint16_t Gpu::displayedVramLine() const
+{
+	uint16_t offset = m_displayLine;
+	if (m_interlaced)
+		offset = m_displayLine * 2 + (uint16_t)m_field;
+
+	// The VRAM "wraps around" so in the case of an overflow,
+	// we simply truncate to 9 bits
+	return (m_displayVramYStart + offset) & 0x1ff;
+}
+
 template<typename T>
-T Gpu::load(uint32_t offset) const
+T Gpu::load(TimeKeeper& timeKeeper, uint32_t offset)
 {
 	if (!std::is_same<uint32_t, T>::value)
 	{
 		LOG("Unhandled GPU load");
 		return ~0;
 	}
+
+	sync(timeKeeper);
 
 	// GPUSTAT: set bit 26, 27, 28 to signal that the GPU is ready for DMA and CPU access.
 	// This way the BIOS won't dead lock waiting for an event that will never come
@@ -19,12 +179,12 @@ T Gpu::load(uint32_t offset) const
 	return 0;
 }
 
-template uint32_t Gpu::load<uint32_t>(uint32_t) const;
-template uint16_t Gpu::load<uint16_t>(uint32_t) const;
-template uint8_t  Gpu::load<uint8_t> (uint32_t) const;
+template uint32_t Gpu::load<uint32_t>(TimeKeeper&, uint32_t);
+template uint16_t Gpu::load<uint16_t>(TimeKeeper&, uint32_t);
+template uint8_t  Gpu::load<uint8_t> (TimeKeeper&, uint32_t);
 
 template<typename T>
-void Gpu::store(uint32_t offset, T value)
+void Gpu::store(TimeKeeper& timeKeeper, uint32_t offset, T value)
 {
 	if (!std::is_same<uint32_t, T>::value)
 	{
@@ -32,18 +192,20 @@ void Gpu::store(uint32_t offset, T value)
 		return;
 	}
 
+	sync(timeKeeper);
+
 	if (offset == 0x0)
 		gp0(value);
 	else if (offset == 0x4)
-		gp1(value);
+		gp1(value, timeKeeper);
 	else
 		LOG("GPU write 0x" << std::hex << offset << " 0x" << value);
 	return;
 }
 
-template void Gpu::store<uint32_t>(uint32_t, uint32_t);
-template void Gpu::store<uint16_t>(uint32_t, uint16_t);
-template void Gpu::store<uint8_t> (uint32_t, uint8_t );
+template void Gpu::store<uint32_t>(TimeKeeper&, uint32_t, uint32_t);
+template void Gpu::store<uint16_t>(TimeKeeper&, uint32_t, uint16_t);
+template void Gpu::store<uint8_t> (TimeKeeper&, uint32_t, uint8_t );
 
 uint32_t Gpu::getStatusRegister() const
 {
@@ -63,12 +225,13 @@ uint32_t Gpu::getStatusRegister() const
 	statusRegister |= m_hres.intoStatus();
 	// Temporary hack: if we don't emulate bit 31 correctly,
 	// setting 'vres' to 1 locks the BIOS:
-	// statusRegister |= ((uint32_t)m_vres) << 19;
+	statusRegister |= ((uint32_t)m_vres) << 19;
 	statusRegister |= ((uint32_t)m_vmode) << 20;
 	statusRegister |= ((uint32_t)m_displayDepth) << 21;
 	statusRegister |= ((uint32_t)m_interlaced) << 22;
 	statusRegister |= ((uint32_t)m_displayDisabled) << 23;
-	statusRegister |= ((uint32_t)m_interrupt) << 24;
+	//statusRegister |= ((uint32_t)m_interrupt) << 24;
+	statusRegister |= ((uint32_t)m_gp0Interrupt) << 24;
 
 	// For now we pretend that the GPU is always ready:
 	// Ready to receive command
@@ -81,7 +244,12 @@ uint32_t Gpu::getStatusRegister() const
 	statusRegister |= ((uint32_t)m_dmaDirection) << 29;
 
 	// Bit 31 should change depending on currently drawn line ( whether it's even or odd in the vblack apparantly )
-	statusRegister |= 0 << 31;
+	// statusRegister |= 0 << 31;
+
+	// Bit 31 is 1 if the currently displayed VRAM line is odd, 0
+	// if it's even or if we're in the vertical blanking.
+	if (!inVblank())
+		statusRegister |= ((uint32_t)(displayedVramLine() & 1)) << 31;
 
 	// It's the signal checked by the DMA when sending data in Request synchronization mode
 	uint32_t dmaRequest = 0;
@@ -217,14 +385,14 @@ void Gpu::gp0(uint32_t value)
 	}
 }
 
-void Gpu::gp1(uint32_t value)
+void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper)
 {
 	uint32_t opcode = (value >> 24) & 0xff;
 
 	switch (opcode)
 	{
 	case 0x0:
-		gp1Reset(value);
+		gp1Reset(value, timeKeeper);
 		break;
 	case 0x01:
 		gp1ResetCommandBuffer();
@@ -245,10 +413,10 @@ void Gpu::gp1(uint32_t value)
 		gp1DisplayHorizontalRange(value);
 		break;
 	case 0x07:
-		gp1DisplayVerticalRange(value);
+		gp1DisplayVerticalRange(value, timeKeeper);
 		break;
 	case 0x08:
-		gp1DisplayMode(value);
+		gp1DisplayMode(value, timeKeeper);
 		break;
 	default:
 		LOG("Unhandled GP1 command 0x" << std::hex << value);
@@ -436,7 +604,7 @@ void Gpu::gp0DrawingOffset()
 	int16_t offsetY = ((int16_t)(y << 5)) >> 5;
 
 	m_renderer.setDrawOffset(offsetX, offsetY);
-	m_renderer.display();
+	//m_renderer.display();
 }
 
 void Gpu::gp0TextureWindow()
@@ -455,9 +623,9 @@ void Gpu::gp0MaskBitSetting()
 	m_preserveMaskedPixels = value & 2;
 }
 
-void Gpu::gp1Reset(uint32_t value)
+void Gpu::gp1Reset(uint32_t value, TimeKeeper& timeKeeper)
 {
-	m_interrupt = false;
+	//m_interrupt = false;
 
 	m_pageBaseX = 0x0;
 	m_pageBaseY = 0x0;
@@ -486,6 +654,7 @@ void Gpu::gp1Reset(uint32_t value)
 	m_displayVramYStart = 0x0;
 	m_hres = HorizontalRes::createFromFields(0, 0);
 	m_vres = VerticalRes::VERTICAL_RES_240_LINES;
+	m_field = Field::FIELD_TOP;
 
 	m_vmode = VMode::VMODE_NTSC;
 	m_interlaced = true;
@@ -494,11 +663,15 @@ void Gpu::gp1Reset(uint32_t value)
 	m_displayLineStart = 0x10;
 	m_displayLineEnd = 0x100;
 	m_displayDepth = DisplayDepth::DISPLAY_DEPTH_15_BITS;
+	m_displayLine = 0;
+	m_displayLineTick = 0;
 
 	m_renderer.setDrawOffset(0, 0);
 
 	gp1ResetCommandBuffer();
 	gp1AcknowledgeIrq();
+
+	sync(timeKeeper);
 }
 
 void Gpu::gp1ResetCommandBuffer()
@@ -510,7 +683,8 @@ void Gpu::gp1ResetCommandBuffer()
 
 void Gpu::gp1AcknowledgeIrq()
 {
-	m_interrupt = false;
+	// m_interrupt = false;
+	m_gp0Interrupt = false;
 }
 
 void Gpu::gp1DisplayEnable(uint32_t value)
@@ -518,7 +692,7 @@ void Gpu::gp1DisplayEnable(uint32_t value)
 	m_displayDisabled = value & 1;
 }
 
-void Gpu::gp1DisplayMode(uint32_t value)
+void Gpu::gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper)
 {
 	uint8_t hr1 = value & 3;
 	uint8_t hr2 = (value >> 6) & 1;
@@ -538,9 +712,12 @@ void Gpu::gp1DisplayMode(uint32_t value)
 		m_displayDepth = DisplayDepth::DISPLAY_DEPTH_15_BITS;
 
 	m_interlaced = value & 0x20;
+	m_field = Field::FIELD_TOP;
 
 	if (value & 0x80)
 		LOG("Unsupported display mode 0x" << std::hex << val);
+
+	sync(timeKeeper);
 }
 
 void Gpu::gp1DmaDirection(uint32_t value)
@@ -574,8 +751,10 @@ void Gpu::gp1DisplayHorizontalRange(uint32_t value)
 	m_displayHorizEnd = (value >> 12) & 0xfff;
 }
 
-void Gpu::gp1DisplayVerticalRange(uint32_t value)
+void Gpu::gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper)
 {
 	m_displayLineStart = value & 0x3ff;
 	m_displayLineEnd = (value >> 10) & 0x3ff;
+
+	sync(timeKeeper);
 }

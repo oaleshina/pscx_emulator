@@ -4,6 +4,7 @@
 #include "pscx_interconnect.h"
 #include "pscx_instruction.h"
 #include "pscx_memory.h"
+#include "pscx_timekeeper.h"
 
 using namespace pscx_memory;
 
@@ -14,9 +15,12 @@ struct Cpu
 	Cpu(Interconnect inter) :
 		m_pc(0xbfc00000),
 		m_nextPc(0xbfc00004),
+		m_currentPc(0x0),
 		m_nextInstruction(0x0), // NOP
 		m_inter(inter),
 		m_sr(0x0),
+		m_cause(0x0),
+		m_epc(0x0),
 		m_load(RegisterIndex(0x0), 0x0),
 		m_branch(false),
 		m_delaySlot(false)
@@ -156,6 +160,10 @@ private:
 		EXCEPTION_UNKNOWN_INSTRUCTION = 0xa
 	};
 
+	// Struct used to keep track of each peripheral's emulation
+	// advancement and synchronize them when needed
+	TimeKeeper m_timeKeeper;
+
 	// Special purpose registers
 	uint32_t m_pc; // program counter register: points to the next instruction
 	uint32_t m_nextPc; // next value for PC, used to simulate the branch delay slot
@@ -219,7 +227,7 @@ private:
 	std::vector<uint32_t> m_debugInstructions;
 
 	template<typename T>
-	Instruction load(uint32_t addr) const;
+	Instruction load(uint32_t addr);
 
 	template<typename T>
 	void store(uint32_t addr, T value);

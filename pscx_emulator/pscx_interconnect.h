@@ -7,6 +7,7 @@
 #include "pscx_gpu.h"
 #include "pscx_memory.h"
 #include "pscx_instruction.h"
+#include "pscx_timekeeper.h"
 
 using namespace pscx_memory;
 
@@ -16,10 +17,10 @@ struct Interconnect
 	Interconnect(Bios bios);
 
 	template<typename T>
-	Instruction load(uint32_t addr) const;
+	Instruction load(TimeKeeper& timeKeeper, uint32_t addr);
 
 	template<typename T>
-	void store(uint32_t addr, T value);
+	void store(TimeKeeper& timeKeeper, uint32_t addr, T value);
 
 	template<typename T>
 	T getDmaRegister(uint32_t offset) const; // DMA register read
@@ -31,8 +32,14 @@ struct Interconnect
 	void doDmaBlock(Port port);
 	void doDmaLinkedList(Port port); // Emulate DMA transfer for linked list synchronization mode
 
+	void sync(TimeKeeper& timeKeeper);
 	CacheControl getCacheControl() const;
 
+	// Load instruction at 'PC'. Only RAM and BIOS are supported.
+	template<typename T>
+	Instruction loadInstruction(uint32_t pc);
+
+private:
 	// Basic Input/Output memory
 	Bios m_bios;
 	Ram m_ram;

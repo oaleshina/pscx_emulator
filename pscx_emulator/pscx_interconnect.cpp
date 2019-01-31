@@ -9,7 +9,7 @@ Interconnect::Interconnect(Bios bios) :
 }
 
 template<typename T>
-Instruction Interconnect::load(uint32_t addr) const
+Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 {
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
@@ -62,7 +62,7 @@ Instruction Interconnect::load(uint32_t addr) const
 		}
 
 		return Instruction(0);*/
-		return Instruction(m_gpu.load<T>(offset));
+		return Instruction(m_gpu.load<T>(timeKeeper, offset));
 	}
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
@@ -75,12 +75,12 @@ Instruction Interconnect::load(uint32_t addr) const
 	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
 }
 
-template Instruction Interconnect::load<uint32_t>(uint32_t) const;
-template Instruction Interconnect::load<uint16_t>(uint32_t) const;
-template Instruction Interconnect::load<uint8_t> (uint32_t) const;
+template Instruction Interconnect::load<uint32_t>(TimeKeeper&, uint32_t);
+template Instruction Interconnect::load<uint16_t>(TimeKeeper&, uint32_t);
+template Instruction Interconnect::load<uint8_t> (TimeKeeper&, uint32_t);
 
 template<typename T>
-void Interconnect::store(uint32_t addr, T value)
+void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 {
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
@@ -155,7 +155,7 @@ void Interconnect::store(uint32_t addr, T value)
 
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
-		m_gpu.store<T>(offset, value);
+		m_gpu.store<T>(timeKeeper, offset, value);
 		return;
 	}
 
@@ -186,9 +186,9 @@ void Interconnect::store(uint32_t addr, T value)
 	LOG("Unhandled store32 into address 0x" << std::hex << targetPeripheralAddress);
 }
 
-template void Interconnect::store<uint32_t>(uint32_t, uint32_t);
-template void Interconnect::store<uint16_t>(uint32_t, uint16_t);
-template void Interconnect::store<uint8_t> (uint32_t, uint8_t );
+template void Interconnect::store<uint32_t>(TimeKeeper&, uint32_t, uint32_t);
+template void Interconnect::store<uint16_t>(TimeKeeper&, uint32_t, uint16_t);
+template void Interconnect::store<uint8_t> (TimeKeeper&, uint32_t, uint8_t );
 
 template<typename T>
 T Interconnect::getDmaRegister(uint32_t offset) const
@@ -436,7 +436,31 @@ void Interconnect::doDmaLinkedList(Port port)
 	channel.done();
 }
 
+void Interconnect::sync(TimeKeeper& timeKeeper)
+{
+	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_GPU))
+		m_gpu.sync(timeKeeper);
+}
+
 CacheControl Interconnect::getCacheControl() const
 {
 	return m_cacheControl;
 }
+
+template<typename T>
+Instruction Interconnect::loadInstruction(uint32_t pc)
+{
+	uint32_t targetPeripheralAddress = maskRegion(pc);
+
+	uint32_t offset = 0;
+	if (RAM.contains(targetPeripheralAddress, offset))
+		return Instruction(m_ram.load<T>(offset));
+
+	if (BIOS.contains(targetPeripheralAddress, offset))
+		return Instruction(m_bios.load<T>(offset));
+
+	LOG("Unhandled instruction load at address 0x" << std::hex << pc);
+	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
+}
+
+template Instruction Interconnect::loadInstruction<uint32_t>(uint32_t);
