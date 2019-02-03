@@ -158,9 +158,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="glad.c" />
+    <ClCompile Include="pscx_cop0.cpp" />
     <ClCompile Include="pscx_dma.cpp" />
     <ClCompile Include="pscx_gpu.cpp" />
     <ClCompile Include="pscx_instruction.cpp" />
+    <ClCompile Include="pscx_interrupts.cpp" />
     <ClCompile Include="pscx_main.cpp" />
     <ClCompile Include="pscx_cpu.cpp" />
     <ClCompile Include="pscx_interconnect.cpp" />
@@ -174,11 +176,13 @@
     <ClInclude Include="inc\KHR\khrplatform.h" />
     <ClInclude Include="pscx_bios.h" />
     <ClInclude Include="pscx_common.h" />
+    <ClInclude Include="pscx_cop0.h" />
     <ClInclude Include="pscx_cpu.h" />
     <ClInclude Include="pscx_dma.h" />
     <ClInclude Include="pscx_gpu.h" />
     <ClInclude Include="pscx_instruction.h" />
     <ClInclude Include="pscx_interconnect.h" />
+    <ClInclude Include="pscx_interrupts.h" />
     <ClInclude Include="pscx_memory.h" />
     <ClInclude Include="pscx_ram.h" />
     <ClInclude Include="pscx_renderer.h" />

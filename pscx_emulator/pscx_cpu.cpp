@@ -23,7 +23,7 @@ Instruction Cpu::load(uint32_t addr)
 template<typename T>
 void Cpu::store(uint32_t addr, T value)
 {
-	if (m_sr.isCacheIsolated())
+	if (m_cop0.isCacheIsolated())
 		return cacheMaintenance<T>(addr, value);
 	return m_inter.store<T>(m_timeKeeper, addr, value);
 }
@@ -301,7 +301,7 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	// Synchronize the peripherals
 	m_inter.sync(m_timeKeeper);
 
-	// Save the address of the current instruction to save in 'EPC' in the case of an exception.
+	// Store the address of the current instruction to save in 'EPC' in the case of an exception.
 	m_currentPc = m_pc;
 
 	if (m_currentPc % 4 != 0)
@@ -339,8 +339,19 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	// We reset the load to target register 0 for the next instruction
 	m_load = RegisterData(RegisterIndex(0x0), 0x0);
 
-	// Execute any pending load
-	InstructionType instructionType = decodeAndExecute(instruction);
+	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
+	// Check for pending interrupts
+	// XXX add software IRQs (should all be handled in StatusRegister code)
+	if (m_cop0.isIrqActive(m_inter.getIrqState()))
+	{
+		exception(Exception::EXCEPTION_INTERRUPT);
+		instructionType = INSTRUCTION_TYPE_EXCEPTION_INTERRUPT;
+	}
+	else
+	{
+		// No interrupt pending, run the current instruction
+		instructionType = decodeAndExecute(instruction);
+	}
 
 	// Copy the output registers as input for the next instruction
 	memcpy(m_regs, m_outRegs, sizeof(m_regs));
@@ -491,7 +502,7 @@ Cpu::InstructionType Cpu::opcodeCOP0(const Instruction& instruction)
 Cpu::InstructionType Cpu::opcodeMTC0(const Instruction& instruction)
 {
 	uint32_t cop0Register = instruction.getRegisterDestinationIndex().getRegisterIndex();
-	uint32_t cop0RegisterValue = getRegisterValue(cop0Register);
+	uint32_t targetRegisterValue = getRegisterValue(instruction.getRegisterTargetIndex());
 
 	switch (cop0Register)
 	{
@@ -508,18 +519,18 @@ Cpu::InstructionType Cpu::opcodeMTC0(const Instruction& instruction)
 	// $cop0_11 BPCM, like BDAM but for masking the BPC breakpoint
 	case 11:
 		// Breakpoints registers
-		if (cop0RegisterValue)
+		if (targetRegisterValue)
 			LOG("Unhandled write to cop0 register 0x" << std::hex << cop0Register);
 		break;
 	// $cop0_12
 	case 12:
 		// Status register, it's used to query and mask the exceptions and controlling the cache behaviour
-		m_sr = getRegisterValue(instruction.getRegisterTargetIndex());
+		m_cop0.setStatusRegister(targetRegisterValue);
 		break;
 	// $cop0_13 CAUSE, which contains mostly read-only data describing the cause of an exception
 	case 13:
 		// Cause register
-		if (cop0RegisterValue)
+		if (targetRegisterValue)
 			LOG("Unhandled write to CAUSE register " << std::hex << cop0Register);
 		break;
 	default:
@@ -538,15 +549,15 @@ Cpu::InstructionType Cpu::opcodeMFC0(const Instruction& instruction)
 	{
 	case 12:
 		// Load data only from $cop0_12 register
-		m_load = RegisterData(cpuRegister, m_sr.getStatusRegister());
+		m_load = RegisterData(cpuRegister, m_cop0.getStatusRegister());
 		break;
 	// $cop0_13 CAUSE
 	case 13:
-		m_load = RegisterData(cpuRegister, m_cause);
+		m_load = RegisterData(cpuRegister, m_cop0.getCauseRegister(m_inter.getIrqState()));
 		break;
 	// $cop0_14 EPC
 	case 14:
-		m_load = RegisterData(cpuRegister, m_epc);
+		m_load = RegisterData(cpuRegister, m_cop0.getExceptionPCRegister());
 		break;
 	default:
 		LOG("Unhandled read from cop0Register 0x" << std::hex << cop0Register);
@@ -955,26 +966,11 @@ Cpu::InstructionType Cpu::opcodeMFHI(const Instruction& instruction)
 
 void Cpu::exception(Exception cause)
 {
-	// Update the status register
-	m_sr.enterException();
-
-	// Update 'CAUSE' register with the exception code ( bits [6:2] )
-	m_cause = ((uint32_t)cause) << 2;
-
-	// Save current instruction address in 'EPC'
-	m_epc = m_currentPc;
-
-	if (m_delaySlot)
-	{
-		// When an exception occurs in a delay slot 'EPC' points
-		// to the branch instruction and bit 31 of 'CAUSE' is set
-		m_epc += 4;
-		m_cause |= 1 << 31;
-	}
+	uint32_t handlerAddr = m_cop0.enterException(cause, m_currentPc, m_delaySlot);
 
 	// Exceptions don't have a branch delay, we jump directly
 	// into the handler
-	m_pc = m_sr.exceptionHandler();
+	m_pc = handlerAddr;
 	m_nextPc = m_pc + 4;
 }
 
@@ -1007,7 +1003,7 @@ Cpu::InstructionType Cpu::opcodeRFE(const Instruction& instruction)
 		return INSTRUCTION_TYPE_UNKNOWN;
 	}
 
-	m_sr.returnFromException();
+	m_cop0.returnFromException();
 
 	return INSTRUCTION_TYPE_RFE;
 }

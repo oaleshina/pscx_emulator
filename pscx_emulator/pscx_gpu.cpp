@@ -25,7 +25,7 @@ Cycles Gpu::gpuToCpuClockRatio() const
 	return (gpuClock / cpuClock) * (float)CLOCK_RATIO_FRAC;
 }
 
-void Gpu::sync(TimeKeeper& timeKeeper)
+void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	Cycles delta = timeKeeper.sync(Peripheral::PERIPHERAL_GPU);
 
@@ -68,9 +68,8 @@ void Gpu::sync(TimeKeeper& timeKeeper)
 	bool vblankInterrupt = inVblank();
 	if (!m_vblankInterrupt && vblankInterrupt)
 	{
-		// Rising edge of the vblank interrupt, should trigger an interrupt
-		// in the controller
-		LOG("GPU interrupt");
+		// Rising edge of the vblank interrupt
+		irqState.setHighStatusBits(Interrupt::INTERRUPT_VBLANK);
 	}
 
 	if (m_vblankInterrupt && !vblankInterrupt)
@@ -159,7 +158,7 @@ uint16_t Gpu::displayedVramLine() const
 }
 
 template<typename T>
-T Gpu::load(TimeKeeper& timeKeeper, uint32_t offset)
+T Gpu::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 {
 	if (!std::is_same<uint32_t, T>::value)
 	{
@@ -167,7 +166,7 @@ T Gpu::load(TimeKeeper& timeKeeper, uint32_t offset)
 		return ~0;
 	}
 
-	sync(timeKeeper);
+	sync(timeKeeper, irqState);
 
 	// GPUSTAT: set bit 26, 27, 28 to signal that the GPU is ready for DMA and CPU access.
 	// This way the BIOS won't dead lock waiting for an event that will never come
@@ -179,12 +178,12 @@ T Gpu::load(TimeKeeper& timeKeeper, uint32_t offset)
 	return 0;
 }
 
-template uint32_t Gpu::load<uint32_t>(TimeKeeper&, uint32_t);
-template uint16_t Gpu::load<uint16_t>(TimeKeeper&, uint32_t);
-template uint8_t  Gpu::load<uint8_t> (TimeKeeper&, uint32_t);
+template uint32_t Gpu::load<uint32_t>(TimeKeeper&, InterruptState&, uint32_t);
+template uint16_t Gpu::load<uint16_t>(TimeKeeper&, InterruptState&, uint32_t);
+template uint8_t  Gpu::load<uint8_t> (TimeKeeper&, InterruptState&, uint32_t);
 
 template<typename T>
-void Gpu::store(TimeKeeper& timeKeeper, uint32_t offset, T value)
+void Gpu::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset, T value)
 {
 	if (!std::is_same<uint32_t, T>::value)
 	{
@@ -192,20 +191,20 @@ void Gpu::store(TimeKeeper& timeKeeper, uint32_t offset, T value)
 		return;
 	}
 
-	sync(timeKeeper);
+	sync(timeKeeper, irqState);
 
 	if (offset == 0x0)
 		gp0(value);
 	else if (offset == 0x4)
-		gp1(value, timeKeeper);
+		gp1(value, timeKeeper, irqState);
 	else
 		LOG("GPU write 0x" << std::hex << offset << " 0x" << value);
 	return;
 }
 
-template void Gpu::store<uint32_t>(TimeKeeper&, uint32_t, uint32_t);
-template void Gpu::store<uint16_t>(TimeKeeper&, uint32_t, uint16_t);
-template void Gpu::store<uint8_t> (TimeKeeper&, uint32_t, uint8_t );
+template void Gpu::store<uint32_t>(TimeKeeper&, InterruptState&, uint32_t, uint32_t);
+template void Gpu::store<uint16_t>(TimeKeeper&, InterruptState&, uint32_t, uint16_t);
+template void Gpu::store<uint8_t> (TimeKeeper&, InterruptState&, uint32_t, uint8_t );
 
 uint32_t Gpu::getStatusRegister() const
 {
@@ -385,14 +384,14 @@ void Gpu::gp0(uint32_t value)
 	}
 }
 
-void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper)
+void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	uint32_t opcode = (value >> 24) & 0xff;
 
 	switch (opcode)
 	{
 	case 0x0:
-		gp1Reset(value, timeKeeper);
+		gp1Reset(value, timeKeeper, irqState);
 		break;
 	case 0x01:
 		gp1ResetCommandBuffer();
@@ -413,10 +412,10 @@ void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper)
 		gp1DisplayHorizontalRange(value);
 		break;
 	case 0x07:
-		gp1DisplayVerticalRange(value, timeKeeper);
+		gp1DisplayVerticalRange(value, timeKeeper, irqState);
 		break;
 	case 0x08:
-		gp1DisplayMode(value, timeKeeper);
+		gp1DisplayMode(value, timeKeeper, irqState);
 		break;
 	default:
 		LOG("Unhandled GP1 command 0x" << std::hex << value);
@@ -623,7 +622,7 @@ void Gpu::gp0MaskBitSetting()
 	m_preserveMaskedPixels = value & 2;
 }
 
-void Gpu::gp1Reset(uint32_t value, TimeKeeper& timeKeeper)
+void Gpu::gp1Reset(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	//m_interrupt = false;
 
@@ -671,7 +670,7 @@ void Gpu::gp1Reset(uint32_t value, TimeKeeper& timeKeeper)
 	gp1ResetCommandBuffer();
 	gp1AcknowledgeIrq();
 
-	sync(timeKeeper);
+	sync(timeKeeper, irqState);
 }
 
 void Gpu::gp1ResetCommandBuffer()
@@ -692,7 +691,7 @@ void Gpu::gp1DisplayEnable(uint32_t value)
 	m_displayDisabled = value & 1;
 }
 
-void Gpu::gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper)
+void Gpu::gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	uint8_t hr1 = value & 3;
 	uint8_t hr2 = (value >> 6) & 1;
@@ -717,7 +716,7 @@ void Gpu::gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper)
 	if (value & 0x80)
 		LOG("Unsupported display mode 0x" << std::hex << val);
 
-	sync(timeKeeper);
+	sync(timeKeeper, irqState);
 }
 
 void Gpu::gp1DmaDirection(uint32_t value)
@@ -751,10 +750,10 @@ void Gpu::gp1DisplayHorizontalRange(uint32_t value)
 	m_displayHorizEnd = (value >> 12) & 0xfff;
 }
 
-void Gpu::gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper)
+void Gpu::gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	m_displayLineStart = value & 0x3ff;
 	m_displayLineEnd = (value >> 10) & 0x3ff;
 
-	sync(timeKeeper);
+	sync(timeKeeper, irqState);
 }

@@ -5,6 +5,7 @@
 #include "pscx_instruction.h"
 #include "pscx_memory.h"
 #include "pscx_timekeeper.h"
+#include "pscx_cop0.h"
 
 using namespace pscx_memory;
 
@@ -18,9 +19,6 @@ struct Cpu
 		m_currentPc(0x0),
 		m_nextInstruction(0x0), // NOP
 		m_inter(inter),
-		m_sr(0x0),
-		m_cause(0x0),
-		m_epc(0x0),
 		m_load(RegisterIndex(0x0), 0x0),
 		m_branch(false),
 		m_delaySlot(false)
@@ -115,6 +113,7 @@ struct Cpu
 		INSTRUCTION_TYPE_UNKNOWN,
 		INSTRUCTION_TYPE_UNALIGNED,
 		INSTRUCTION_TYPE_OVERFLOW,
+		INSTRUCTION_TYPE_EXCEPTION_INTERRUPT,
 		INSTRUCTION_TYPE_COUNT
 	};
 
@@ -133,31 +132,6 @@ private:
 
 		RegisterIndex m_registerIndex;
 		uint32_t      m_registerValue;
-	};
-
-	// Exception types ( sd stored in the 'CAUSE' register )
-	enum Exception
-	{
-		// System call ( caused by the SYSCALL opcode )
-		EXCEPTION_SYSCALL = 0x8,
-
-		// Arithmetic overflow
-		EXCEPTION_OVERFLOW = 0xc,
-
-		// Address error on load
-		EXCEPTION_LOAD_ADDRESS_ERROR = 0x4,
-
-		// Address error on store
-		EXCEPTION_STORE_ADDRESS_ERROR = 0x5,
-
-		// Breakpoint ( caused by the BREAK opcode )
-		EXCEPTION_BREAK = 0x9,
-
-		// Unsupported coprocessor operation
-		EXCEPTION_COPROCESSOR_ERROR = 0xb,
-
-		// CPU encountered an unknown instruction
-		EXCEPTION_UNKNOWN_INSTRUCTION = 0xa
 	};
 
 	// Struct used to keep track of each peripheral's emulation
@@ -191,14 +165,8 @@ private:
 	// Instruction cache (256 4-word cachelines)
 	ICacheLine m_icache[0x100];
 
-	// Cop0 register 12: Status Register
-	StatusRegister m_sr;
-
-	// Cop0 register 13: Cause Register
-	uint32_t m_cause;
-
-	// Cop0 register 14: EPC
-	uint32_t m_epc;
+	// Coprocessor 0: System control
+	Cop0 m_cop0;
 
 	// HI register for division remainder and multiplication high result
 	uint32_t m_hi;

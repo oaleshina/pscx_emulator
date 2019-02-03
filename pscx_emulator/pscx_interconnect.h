@@ -8,6 +8,7 @@
 #include "pscx_memory.h"
 #include "pscx_instruction.h"
 #include "pscx_timekeeper.h"
+#include "pscx_interrupts.h"
 
 using namespace pscx_memory;
 
@@ -39,10 +40,13 @@ struct Interconnect
 	template<typename T>
 	Instruction loadInstruction(uint32_t pc);
 
+	InterruptState getIrqState() const;
+
 private:
-	// Basic Input/Output memory
-	Bios m_bios;
-	Ram m_ram;
+	
+	InterruptState m_irqState;
+	Bios m_bios; // Basic Input/Output memory
+	Ram m_ram; // Main RAM
 	Dma m_dma; // DMA registers
 	Gpu m_gpu; // Graphics Processir Unit
 	CacheControl m_cacheControl; // Cache Control register

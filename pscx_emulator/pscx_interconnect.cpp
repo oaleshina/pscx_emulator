@@ -37,8 +37,12 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 
 	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
 	{
-		LOG("IRQ control read 0x" << std::hex << offset);
-		return Instruction(0);
+		uint32_t irqControlValue = 0x0;
+		if (offset == 0x0)
+			irqControlValue = m_irqState.getInterruptStatus();
+		else if (offset = 0x4)
+			irqControlValue = m_irqState.getInterruptMask();
+		return Instruction(irqControlValue);
 	}
 
 	if (DMA.contains(targetPeripheralAddress, offset))
@@ -48,21 +52,7 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
-		LOG("GPU read 0x" << std::hex << offset);
-
-		// GPUSTAT: set bit 26, 27, 28 to signal that the GPU is ready for DMA and CPU access.
-		// This way the BIOS won't dead lock waiting for an event that will never come
-		/*if (offset == 0x0)
-		{
-			return Instruction(m_gpu.getReadRegister());
-		}
-		if (offset == 0x4)
-		{
-			return Instruction(m_gpu.getStatusRegister());
-		}
-
-		return Instruction(0);*/
-		return Instruction(m_gpu.load<T>(timeKeeper, offset));
+		return Instruction(m_gpu.load<T>(timeKeeper, m_irqState, offset));
 	}
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
@@ -143,7 +133,10 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
 	{
-		LOG("IRQ control 0x" << std::hex << offset << " 0x" << value);
+		if (offset == 0x0)
+			m_irqState.acknowledgeInterrupts(value);
+		else if (offset == 0x4)
+			m_irqState.setInterruptMask(value);
 		return;
 	}
 
@@ -155,7 +148,7 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
-		m_gpu.store<T>(timeKeeper, offset, value);
+		m_gpu.store<T>(timeKeeper, m_irqState, offset, value);
 		return;
 	}
 
@@ -439,7 +432,7 @@ void Interconnect::doDmaLinkedList(Port port)
 void Interconnect::sync(TimeKeeper& timeKeeper)
 {
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_GPU))
-		m_gpu.sync(timeKeeper);
+		m_gpu.sync(timeKeeper, m_irqState);
 }
 
 CacheControl Interconnect::getCacheControl() const
@@ -464,3 +457,8 @@ Instruction Interconnect::loadInstruction(uint32_t pc)
 }
 
 template Instruction Interconnect::loadInstruction<uint32_t>(uint32_t);
+
+InterruptState Interconnect::getIrqState() const
+{
+	return m_irqState;
+}

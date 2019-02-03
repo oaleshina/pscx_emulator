@@ -4,6 +4,7 @@
 #include "pscx_memory.h"
 #include "pscx_renderer.h"
 #include "pscx_timekeeper.h"
+#include "pscx_interrupts.h"
 
 const Cycles CLOCK_RATIO_FRAC = 0x10000;
 
@@ -201,7 +202,7 @@ struct Gpu
 	Cycles gpuToCpuClockRatio() const;
 
 	// Update the GPU state to its current status
-	void sync(TimeKeeper& timeKeeper);
+	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// Predict when the next "forced" sync should take place
 	void predictNextSync(TimeKeeper timeKeeper);
@@ -213,10 +214,10 @@ struct Gpu
 	uint16_t displayedVramLine() const;
 
 	template<typename T>
-	T load(TimeKeeper& timeKeeper, uint32_t offset);
+	T load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset);
 
 	template<typename T>
-	void store(TimeKeeper& timeKeeper, uint32_t offset, T value);
+	void store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset, T value);
 
 	// Retrieve value of the status register
 	uint32_t getStatusRegister() const;
@@ -228,7 +229,7 @@ struct Gpu
 	void gp0(uint32_t value);
 
 	// Handle writes to the GP1 command register
-	void gp1(uint32_t value, TimeKeeper& timeKeeper);
+	void gp1(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// GP0(0x0): NOP
 	void gp0Nop();
@@ -273,7 +274,7 @@ struct Gpu
 	void gp0MaskBitSetting();
 
 	// GP1(0x0): Soft reset
-	void gp1Reset(uint32_t value, TimeKeeper& timeKeeper);
+	void gp1Reset(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// Gp1(0x01): Reset Command Buffer
 	void gp1ResetCommandBuffer();
@@ -294,10 +295,10 @@ struct Gpu
 	void gp1DisplayHorizontalRange(uint32_t value);
 
 	// GP1(0x07): Display Vertical Range
-	void gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper);
+	void gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// GP1(0x08): Display Mode
-	void gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper);
+	void gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
 
 private:
 	// Texture page base X coordinate ( 4 bits, 64 byte increment )
