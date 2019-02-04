@@ -69,7 +69,7 @@ void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	if (!m_vblankInterrupt && vblankInterrupt)
 	{
 		// Rising edge of the vblank interrupt
-		irqState.setHighStatusBits(Interrupt::INTERRUPT_VBLANK);
+		irqState.raiseAssert(Interrupt::INTERRUPT_VBLANK);
 	}
 
 	if (m_vblankInterrupt && !vblankInterrupt)

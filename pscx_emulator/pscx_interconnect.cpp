@@ -276,7 +276,7 @@ void Interconnect::setDmaRegister(uint32_t offset, T value)
 		if (minor == 0x0)
 			m_dma.setDmaControlRegister(value);
 		else if (minor == 0x4)
-			m_dma.setDmaInterruptRegister(value);
+			m_dma.setDmaInterruptRegister(value, m_irqState);
 		else
 		{
 			LOG("Unhandled DMA write 0x" << std::hex << offset << " 0x" << value);
@@ -313,6 +313,7 @@ void Interconnect::doDma(Port port)
 	{
 		doDmaBlock(port);
 	}
+	m_dma.done(port, m_irqState);
 }
 
 void Interconnect::doDmaBlock(Port port)
@@ -378,7 +379,6 @@ void Interconnect::doDmaBlock(Port port)
 		addr += increment;
 		transferSize -= 1;
 	}
-	channel.done();
 }
 
 void Interconnect::doDmaLinkedList(Port port)
@@ -426,7 +426,6 @@ void Interconnect::doDmaLinkedList(Port port)
 		}
 		addr = header & 0x1ffffc;
 	}
-	channel.done();
 }
 
 void Interconnect::sync(TimeKeeper& timeKeeper)

@@ -6,7 +6,10 @@
 enum Interrupt
 {
 	// Display the vertical blanking
-	INTERRUPT_VBLANK = 0
+	INTERRUPT_VBLANK = 0,
+
+	// DMA transfer done
+	INTERRUPT_DMA = 3
 };
 
 struct InterruptState
@@ -16,7 +19,7 @@ struct InterruptState
 		m_mask(0x0)
 	{}
 
-	// Return true if at least one interrupt is active and not masked
+	// Return true if at least one interrupt is asserted and not masked
 	bool isActiveInterrupt() const;
 
 	uint16_t getInterruptStatus() const;
@@ -27,7 +30,9 @@ struct InterruptState
 	uint16_t getInterruptMask() const;
 	void setInterruptMask(uint16_t mask);
 
-	void setHighStatusBits(Interrupt which);
+	// Trigger the interrupt 'which', must be called on the rising
+	// edge of the interrupt signal.
+	void raiseAssert(Interrupt which);
 
 private:
 	// Interrupt status

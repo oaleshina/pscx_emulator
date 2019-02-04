@@ -341,7 +341,6 @@ Cpu::InstructionType Cpu::runNextInstuction()
 
 	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
 	// Check for pending interrupts
-	// XXX add software IRQs (should all be handled in StatusRegister code)
 	if (m_cop0.isIrqActive(m_inter.getIrqState()))
 	{
 		exception(Exception::EXCEPTION_INTERRUPT);

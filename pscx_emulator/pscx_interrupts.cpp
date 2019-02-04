@@ -25,7 +25,7 @@ void InterruptState::setInterruptMask(uint16_t mask)
 	m_mask = mask;
 }
 
-void InterruptState::setHighStatusBits(Interrupt which)
+void InterruptState::raiseAssert(Interrupt which)
 {
 	m_status |= (1 << which);
 }

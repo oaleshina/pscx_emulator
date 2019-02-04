@@ -2,6 +2,7 @@
 
 #include "pscx_common.h"
 #include "pscx_memory.h"
+#include "pscx_interrupts.h"
 
 // DMA transfer direction
 enum Direction
@@ -126,10 +127,12 @@ struct Dma
 	void setDmaControlRegister(uint32_t value); // Set the value of the control register
 
 	uint32_t getDmaInterruptRegister() const; // Retrieve the value of the interrupt register
-	void setDmaInterruptRegister(uint32_t value); // Set the value of the interrupt register
+	void setDmaInterruptRegister(uint32_t value, InterruptState& irqState); // Set the value of the interrupt register
 
 	const Channel& getDmaChannelRegister(Port port) const; // Return a reference to a channel by port number
 	Channel& getDmaChannelRegisterMutable(Port port); // Return a mutable reference to a channel by port number
+
+	void done(Port port, InterruptState& irqState);
 
 	bool getIRQStatus() const; // Return the status of the DMA interrupt
 

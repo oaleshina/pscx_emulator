@@ -30,8 +30,10 @@ uint32_t Dma::getDmaInterruptRegister() const
 	return interruptRegister;
 }
 
-void Dma::setDmaInterruptRegister(uint32_t value)
+void Dma::setDmaInterruptRegister(uint32_t value, InterruptState& irqState)
 {
+	uint32_t prevIrq = getDmaInterruptRegister();
+
 	m_IRQDummy = value & 0x3f;
 	m_forceIRQ = (value >> 15) & 1;
 	m_channelIRQEnabled = (value >> 16) & 0x7f;
@@ -39,6 +41,12 @@ void Dma::setDmaInterruptRegister(uint32_t value)
 
 	uint8_t ack = (value >> 24) & 0x3f;
 	m_channelIRQFlags &= ~ack;
+
+	if (!prevIrq && getDmaInterruptRegister())
+	{
+		// Rising edge of the done interrupt
+		irqState.raiseAssert(Interrupt::INTERRUPT_DMA);
+	}
 }
 
 const Channel& Dma::getDmaChannelRegister(Port port) const
@@ -49,6 +57,23 @@ const Channel& Dma::getDmaChannelRegister(Port port) const
 Channel& Dma::getDmaChannelRegisterMutable(Port port)
 {
 	return m_channels[port];
+}
+
+void Dma::done(Port port, InterruptState& irqState)
+{
+	getDmaChannelRegisterMutable(port).done();
+
+	uint32_t prevIrq = getDmaInterruptRegister();
+
+	// Set interrupt flag if the channel's interrupt is enabled
+	uint8_t interruptEnabled = m_channelIRQEnabled & (1 << port);
+	m_channelIRQFlags |= interruptEnabled;
+
+	if (!prevIrq && getDmaInterruptRegister())
+	{
+		// Rising edge of the done interrupt
+		irqState.raiseAssert(Interrupt::INTERRUPT_DMA);
+	}
 }
 
 uint32_t Channel::getDmaChannelControlRegister() const
