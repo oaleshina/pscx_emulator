@@ -1,4 +1,5 @@
 #include "pscx_interrupts.h"
+#include "pscx_common.h"
 
 bool InterruptState::isActiveInterrupt() const
 {
@@ -22,6 +23,18 @@ uint16_t InterruptState::getInterruptMask() const
 
 void InterruptState::setInterruptMask(uint16_t mask)
 {
+	Interrupt supported[] = { Interrupt::INTERRUPT_VBLANK, Interrupt::INTERRUPT_DMA };
+
+	uint16_t rem = mask;
+	for (size_t i = 0; i < 2; ++i)
+		rem &= (~(1 << supported[i]));
+
+	if (rem)
+	{
+		LOG("Unsupported interrupt 0x" << std::hex << rem);
+		return;
+	}
+
 	m_mask = mask;
 }
 
