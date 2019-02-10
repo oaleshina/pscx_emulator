@@ -9,6 +9,7 @@
 #include "pscx_instruction.h"
 #include "pscx_timekeeper.h"
 #include "pscx_interrupts.h"
+#include "pscx_timers.h"
 
 using namespace pscx_memory;
 
@@ -49,5 +50,6 @@ private:
 	Ram m_ram; // Main RAM
 	Dma m_dma; // DMA registers
 	Gpu m_gpu; // Graphics Processir Unit
+	Timers m_timers; // System timers
 	CacheControl m_cacheControl; // Cache Control register
 };

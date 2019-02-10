@@ -10,7 +10,7 @@ std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
 	return std::make_pair(3404, 314); // VMode::Pal
 }
 
-Cycles Gpu::gpuToCpuClockRatio() const
+FracCycles Gpu::gpuToCpuClockRatio() const
 {
 	// First we convert the delta into GPU clock periods.
 	// CPU clock in MHz
@@ -22,7 +22,45 @@ Cycles Gpu::gpuToCpuClockRatio() const
 		gpuClock = 53.69f;
 
 	// Clock ratio shifted 16 bits to the left
-	return (gpuClock / cpuClock) * (float)CLOCK_RATIO_FRAC;
+	//return (gpuClock / cpuClock) * (float)CLOCK_RATIO_FRAC;
+	return FracCycles::fromF32(gpuClock / cpuClock);
+}
+
+FracCycles Gpu::dotclockPeriod()
+{
+	FracCycles gpuClockPeriod = gpuToCpuClockRatio();
+	uint8_t dotclockDivider = m_hres.dotclockDivider();
+
+	// Dividing the clock frequency means multiplying its period
+	Cycles period = gpuClockPeriod.getFp() * (Cycles)dotclockDivider;
+	return FracCycles::fromFp(period);
+}
+
+FracCycles Gpu::dotclockPhase()
+{
+	return FracCycles::fromCycles(m_gpuClockPhase);
+}
+
+FracCycles Gpu::hsyncPeriod()
+{
+	std::pair<uint16_t, uint16_t> vModeTimings = getVModeTimings();
+	uint16_t ticksPerLine = vModeTimings.first;
+
+	FracCycles lineLen = FracCycles::fromCycles(ticksPerLine);
+
+	// Convert from GPU cycles into CPU cycles
+	return lineLen.divide(gpuToCpuClockRatio());
+}
+
+FracCycles Gpu::hsyncPhase()
+{
+	FracCycles phase = FracCycles::fromCycles(m_displayLineTick);
+	FracCycles clockPhase = FracCycles::fromFp(m_gpuClockPhase);
+
+	phase = phase.add(clockPhase);
+
+	// Convert phase from GPU clock cycles into CPU clock cycles
+	return phase.multiply(gpuToCpuClockRatio());
 }
 
 void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
@@ -30,10 +68,10 @@ void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	Cycles delta = timeKeeper.sync(Peripheral::PERIPHERAL_GPU);
 
 	// Convert delta in GPU time, adding the leftover from the last time
-	delta = (Cycles)m_gpuClockFrac + delta * gpuToCpuClockRatio();
+	delta = (Cycles)m_gpuClockPhase + delta * gpuToCpuClockRatio().getFp();
 
 	// The 16 low bits are the new fractional part
-	m_gpuClockFrac = delta;
+	m_gpuClockPhase = delta;
 
 	// Convert delta back to integer
 	delta >>= 16;
@@ -129,13 +167,13 @@ void Gpu::predictNextSync(TimeKeeper timeKeeper)
 	}
 
 	// Convert delta in CPU clock periods.
-	delta *= CLOCK_RATIO_FRAC;
+	delta <<= FracCycles::fracBits(); //*= CLOCK_RATIO_FRAC;
 	// Remove the current fractiona; cycle to be more accurate.
-	delta -= (Cycles)m_gpuClockFrac;
+	delta -= (Cycles)m_gpuClockPhase;
 
 	// Divide by the ratio while always rounding up to make sure
 	// we're never triggered too early.
-	Cycles ratio = gpuToCpuClockRatio();
+	Cycles ratio = gpuToCpuClockRatio().getFp();
 	delta = (delta + ratio - 1) / ratio;
 
 	timeKeeper.setNextSyncDelta(Peripheral::PERIPHERAL_GPU, delta);
@@ -183,7 +221,7 @@ template uint16_t Gpu::load<uint16_t>(TimeKeeper&, InterruptState&, uint32_t);
 template uint8_t  Gpu::load<uint8_t> (TimeKeeper&, InterruptState&, uint32_t);
 
 template<typename T>
-void Gpu::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset, T value)
+void Gpu::store(TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState, uint32_t offset, T value)
 {
 	if (!std::is_same<uint32_t, T>::value)
 	{
@@ -196,15 +234,15 @@ void Gpu::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offse
 	if (offset == 0x0)
 		gp0(value);
 	else if (offset == 0x4)
-		gp1(value, timeKeeper, irqState);
+		gp1(value, timeKeeper, timers, irqState);
 	else
 		LOG("GPU write 0x" << std::hex << offset << " 0x" << value);
 	return;
 }
 
-template void Gpu::store<uint32_t>(TimeKeeper&, InterruptState&, uint32_t, uint32_t);
-template void Gpu::store<uint16_t>(TimeKeeper&, InterruptState&, uint32_t, uint16_t);
-template void Gpu::store<uint8_t> (TimeKeeper&, InterruptState&, uint32_t, uint8_t );
+template void Gpu::store<uint32_t>(TimeKeeper&, Timers&, InterruptState&, uint32_t, uint32_t);
+template void Gpu::store<uint16_t>(TimeKeeper&, Timers&, InterruptState&, uint32_t, uint16_t);
+template void Gpu::store<uint8_t> (TimeKeeper&, Timers&, InterruptState&, uint32_t, uint8_t );
 
 uint32_t Gpu::getStatusRegister() const
 {
@@ -384,14 +422,15 @@ void Gpu::gp0(uint32_t value)
 	}
 }
 
-void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState)
+void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState)
 {
 	uint32_t opcode = (value >> 24) & 0xff;
 
 	switch (opcode)
 	{
 	case 0x0:
-		gp1Reset(value, timeKeeper, irqState);
+		gp1Reset(timeKeeper, irqState);
+		timers.videoTimingsChanged(timeKeeper, irqState, *this);
 		break;
 	case 0x01:
 		gp1ResetCommandBuffer();
@@ -416,6 +455,7 @@ void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState)
 		break;
 	case 0x08:
 		gp1DisplayMode(value, timeKeeper, irqState);
+		timers.videoTimingsChanged(timeKeeper, irqState, *this);
 		break;
 	default:
 		LOG("Unhandled GP1 command 0x" << std::hex << value);
@@ -622,7 +662,7 @@ void Gpu::gp0MaskBitSetting()
 	m_preserveMaskedPixels = value & 2;
 }
 
-void Gpu::gp1Reset(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState)
+void Gpu::gp1Reset(TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	//m_interrupt = false;
 

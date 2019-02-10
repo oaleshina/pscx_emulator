@@ -57,8 +57,10 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Unhandled read from the timer register 0x" << std::hex << offset);
-		return Instruction(0);
+		//LOG("Unhandled read from the timer register 0x" << std::hex << offset);
+		//return Instruction(0);
+
+		return Instruction(m_timers.load<T>(timeKeeper, m_irqState, offset));
 	}
 
 	LOG("Unhandled fetch32 at address 0x" << std::hex << addr);
@@ -148,13 +150,14 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
-		m_gpu.store<T>(timeKeeper, m_irqState, offset, value);
+		m_gpu.store<T>(timeKeeper, m_timers, m_irqState, offset, value);
 		return;
 	}
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Unhandled write to timer register 0x" << std::hex << offset << " 0x" << value);
+		//LOG("Unhandled write to timer register 0x" << std::hex << offset << " 0x" << value);
+		m_timers.store<T>(timeKeeper, m_irqState, m_gpu, offset, value);
 		return;
 	}
 

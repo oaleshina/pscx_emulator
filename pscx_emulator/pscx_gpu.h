@@ -5,8 +5,9 @@
 #include "pscx_renderer.h"
 #include "pscx_timekeeper.h"
 #include "pscx_interrupts.h"
+#include "pscx_timers.h"
 
-const Cycles CLOCK_RATIO_FRAC = 0x10000;
+//const Cycles CLOCK_RATIO_FRAC = 0x10000;
 
 // Depth of the pixel values in a texture page
 enum TextureDepth
@@ -46,6 +47,50 @@ struct HorizontalRes
 	uint32_t intoStatus() const
 	{
 		return ((uint32_t)m_horizontalRes) << 16;
+	}
+
+	// Return the divider used to generate the dotclock from the GPU clock.
+	uint8_t dotclockDivider()
+	{
+		uint8_t hr1 = (m_horizontalRes >> 1) & 0x3;
+		uint8_t hr2 = m_horizontalRes & 1;
+
+		// If bit "Horizontal Resolution 2" is set then we're in "368 pixel"
+		// mode (dotclock = GPU clock / 7). If it's not set then we must check
+		// the other two bits of "Horizontal Resolution 2".
+
+		// Note that the horizontal resolutions given here are estimates,
+		// it's roughly the number of dotclock ticks necessary to fill a line with a given
+		// divider. "displayHorizStart" and "displayHorizEnd" will give the actual resoultion.
+		uint8_t dotclockDivider = 1;
+		if (hr2)
+		{
+			// HRes ~ 368 pixels
+			dotclockDivider = 7;
+		}
+		else
+		{
+			switch (hr1)
+			{
+			// Hres ~ 256 pixels
+			case 0:
+				dotclockDivider = 10;
+				break;
+			// Hres ~ 320 pixels
+			case 1:
+				dotclockDivider = 8;
+				break;
+			// Hres ~ 512 pixels
+			case 2:
+				dotclockDivider = 5;
+				break;
+			// Hres ~ 640 pixels
+			case 3:
+				dotclockDivider = 4;
+				break;
+			}
+		}
+		return dotclockDivider;
 	}
 
 	uint8_t m_horizontalRes;
@@ -186,7 +231,8 @@ struct Gpu
 		m_gp0Mode(Gp0Mode::GP0_MODE_COMMAND),
 		m_gp0Interrupt(false),
 		m_vblankInterrupt(false),
-		m_gpuClockFrac(0x0),
+		//m_gpuClockFrac(0x0),
+		m_gpuClockPhase(0x0),
 		m_displayLine(0x0),
 		m_displayLineTick(0x0),
 		m_hardwareType(HardwareType::HARDWARE_TYPE_NTSC)
@@ -199,7 +245,20 @@ struct Gpu
 
 	// Return the GPU to CPU clock ratio. The value is multiplied by
 	// CLOCK_RATIO_FRAC to get a precise fixed point value
-	Cycles gpuToCpuClockRatio() const;
+	FracCycles gpuToCpuClockRatio() const;
+
+	// Return the period of the dotclock expressed in CPU block periods
+	FracCycles dotclockPeriod();
+
+	// Return the current phase of the GPU dotclock relative to the CPU clock
+	FracCycles dotclockPhase();
+
+	// Return the period of the HSync signal in CPU clock periods
+	FracCycles hsyncPeriod();
+
+	// Return the phase of the hsync (position within the line) in
+	// CPU clock periods
+	FracCycles hsyncPhase();
 
 	// Update the GPU state to its current status
 	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);
@@ -217,7 +276,7 @@ struct Gpu
 	T load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset);
 
 	template<typename T>
-	void store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset, T value);
+	void store(TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState, uint32_t offset, T value);
 
 	// Retrieve value of the status register
 	uint32_t getStatusRegister() const;
@@ -229,7 +288,7 @@ struct Gpu
 	void gp0(uint32_t value);
 
 	// Handle writes to the GP1 command register
-	void gp1(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
+	void gp1(uint32_t value, TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState);
 
 	// GP0(0x0): NOP
 	void gp0Nop();
@@ -274,7 +333,7 @@ struct Gpu
 	void gp0MaskBitSetting();
 
 	// GP1(0x0): Soft reset
-	void gp1Reset(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
+	void gp1Reset(TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// Gp1(0x01): Reset Command Buffer
 	void gp1ResetCommandBuffer();
@@ -430,7 +489,11 @@ private:
 
 	// Fractional GPU cycle remainder resulting from the CPU
 	// clock/GPU clock time conversion.
-	uint16_t m_gpuClockFrac;
+	// uint16_t m_gpuClockFrac;
+
+	// Clock/GPU clock time conversion. Effectively the phase of the
+	// GPU clock relative to the CPU, expressed in CPU clock periods.
+	uint16_t m_gpuClockPhase;
 
 	// Currently displayed video output line
 	uint16_t m_displayLine;
