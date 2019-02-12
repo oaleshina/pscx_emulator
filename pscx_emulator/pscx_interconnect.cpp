@@ -55,11 +55,13 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 		return Instruction(m_gpu.load<T>(timeKeeper, m_irqState, offset));
 	}
 
+	if (CDROM.contains(targetPeripheralAddress, offset))
+	{
+		return Instruction(m_cdRom.load<T>(timeKeeper, m_irqState, offset));
+	}
+
 	if (TIMERS.contains(targetPeripheralAddress, offset))
 	{
-		//LOG("Unhandled read from the timer register 0x" << std::hex << offset);
-		//return Instruction(0);
-
 		return Instruction(m_timers.load<T>(timeKeeper, m_irqState, offset));
 	}
 
@@ -151,6 +153,12 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
 		m_gpu.store<T>(timeKeeper, m_timers, m_irqState, offset, value);
+		return;
+	}
+
+	if (CDROM.contains(targetPeripheralAddress, offset))
+	{
+		m_cdRom.store<T>(timeKeeper, m_irqState, offset, value);
 		return;
 	}
 

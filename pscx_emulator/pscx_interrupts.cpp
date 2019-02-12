@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "pscx_interrupts.h"
 #include "pscx_common.h"
 
@@ -23,18 +25,14 @@ uint16_t InterruptState::getInterruptMask() const
 
 void InterruptState::setInterruptMask(uint16_t mask)
 {
-	Interrupt supported[] = { Interrupt::INTERRUPT_VBLANK, Interrupt::INTERRUPT_DMA };
+	Interrupt supported[] = { Interrupt::INTERRUPT_VBLANK, Interrupt::INTERRUPT_CDROM, Interrupt::INTERRUPT_DMA };
 
 	uint16_t rem = mask;
-	for (size_t i = 0; i < 2; ++i)
+	for (size_t i = 0; i < _countof(supported); ++i)
 		rem &= (~(1 << supported[i]));
 
-	if (rem)
-	{
-		LOG("Unsupported interrupt 0x" << std::hex << rem);
-		return;
-	}
-
+	// Fails on assert. Used for debugging.
+	// assert(rem == 0x0, "Unsupported interrupt");
 	m_mask = mask;
 }
 

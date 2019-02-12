@@ -10,6 +10,7 @@
 #include "pscx_timekeeper.h"
 #include "pscx_interrupts.h"
 #include "pscx_timers.h"
+#include "pscx_cdrom.h"
 
 using namespace pscx_memory;
 
@@ -52,4 +53,5 @@ private:
 	Gpu m_gpu; // Graphics Processir Unit
 	Timers m_timers; // System timers
 	CacheControl m_cacheControl; // Cache Control register
+	CdRom m_cdRom; // CDROM controller
 };

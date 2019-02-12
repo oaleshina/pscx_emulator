@@ -66,6 +66,9 @@
     <ClCompile Include="pscx_timers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pscx_cdrom.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pscx_bios.h">
@@ -111,6 +114,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pscx_timers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_cdrom.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

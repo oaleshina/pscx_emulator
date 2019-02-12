@@ -8,6 +8,9 @@ enum Interrupt
 	// Display the vertical blanking
 	INTERRUPT_VBLANK = 0,
 
+	// CDROM controller
+	INTERRUPT_CDROM = 2,
+
 	// DMA transfer done
 	INTERRUPT_DMA = 3
 };
