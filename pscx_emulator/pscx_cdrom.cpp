@@ -172,6 +172,7 @@ void CdRom::command(uint8_t cmd)
 		break;
 	default:
 		assert(0, "Unhandled CDROM command");
+		break;
 	}
 
 	m_params.clear();
@@ -195,9 +196,9 @@ void CdRom::cmdTest()
 	{
 	case 0x20:
 		testVersion();
+		break;
 	default:
-		// Fails on assert. Used for debugging.
-		// assert(0, "Unhandled CDROM test subcommand");
+		assert(0, "Unhandled CDROM test subcommand");
 		break;
 	}
 }

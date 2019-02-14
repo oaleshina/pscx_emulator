@@ -17,6 +17,9 @@ struct Position
 		return Position(x, y);
 	}
 
+	GLshort getX() const { return m_x; }
+	GLshort getY() const { return m_y; }
+
 private:
 	GLshort m_x, m_y;
 };

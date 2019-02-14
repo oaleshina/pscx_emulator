@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "pscx_timers.h"
 #include "pscx_gpu.h"
 
@@ -53,7 +55,7 @@ uint8_t ClockSource::getClockSource() const
 }
 
 // ************* Timer implementation ******************
-void Timer::reconfigure(Gpu gpu)
+void Timer::reconfigure(Gpu gpu, TimeKeeper& timeKeeper)
 {
 	switch (m_clockSource.clock(m_instance))
 	{
@@ -74,11 +76,21 @@ void Timer::reconfigure(Gpu gpu)
 		m_phase = gpu.hsyncPhase();
 		break;
 	}
+
+	predictNextSync(timeKeeper);
 }
 
-void Timer::sync(TimeKeeper timeKeeper, InterruptState irqState)
+void Timer::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	Cycles delta = timeKeeper.sync(m_instance);
+
+	if (delta == 0x0)
+	{
+		// The interrupt code below might glitch if it's called
+		// two times in a row (trigger the interrupt twice). Let's keep it clean.
+		return;
+	}
+
 	FracCycles deltaFrac = FracCycles::fromCycles(delta);
 
 	FracCycles ticks = deltaFrac.add(m_phase);
@@ -89,34 +101,92 @@ void Timer::sync(TimeKeeper timeKeeper, InterruptState irqState)
 	// Store the new phase
 	m_phase = FracCycles::fromFp(phase);
 
-	Cycles target = 0x10000;
+	count += (Cycles)m_counter;
+
+	bool targetPassed = false;
+	if ((m_counter <= m_target) && (count > (Cycles)m_target))
+	{
+		m_targetReached = true;
+		targetPassed = true;
+	}
+
+	Cycles wrap = 0x10000;
 	if (m_targetWrap)
 	{
 		// Wrap after the target is reached, so we need to
 		// add 1 to it for our modulo to work correctly later.
-		target = (Cycles)m_target + 1;
+		wrap = (Cycles)m_target + 1;
 	}
 
-	count += (Cycles)m_counter;
-	if (count >= target)
+	bool overflow = false;
+	if (count >= wrap)
 	{
-		count %= target;
-		m_targetReached = true;
-		if (target == 0x10000)
+		count %= wrap;
+		if (wrap == 0x10000)
+		{
 			m_overflowReached = true;
+			overflow = true;
+		}
 	}
 
 	m_counter = (uint16_t)count;
+	if ((m_wrapIrq && overflow) || (m_targetIrq && targetPassed))
+	{
+		Interrupt interrupt;
+		switch (m_instance)
+		{
+		case Peripheral::PERIPHERAL_TIMER0:
+			interrupt = Interrupt::INTERRUPT_TIMER0;
+			break;
+		case Peripheral::PERIPHERAL_TIMER1:
+			interrupt = Interrupt::INTERRUPT_TIMER1;
+			break;
+		case Peripheral::PERIPHERAL_TIMER2:
+			interrupt = Interrupt::INTERRUPT_TIMER2;
+		default:
+			// Unreachable
+			break;
+		}
+
+		assert(m_negateIrq == false, "Unhandled negate IRQ!");
+
+		// Pulse interrupt
+		irqState.raiseAssert(interrupt);
+		m_interrupt = true;
+	}
+	else if (!m_negateIrq)
+	{
+		// Pulse is over
+		m_interrupt = false;
+	}
+	predictNextSync(timeKeeper);
+}
+
+void Timer::predictNextSync(TimeKeeper& timeKeeper)
+{
+	if (!m_targetIrq)
+	{
+		// No IRQ enabled, we don't need to be called back.
+		timeKeeper.noSyncNeeded(m_instance);
+		return;
+	}
+
+	uint16_t countDown = 0xffff - m_counter + m_target;
+	if (m_counter <= m_target)
+		countDown = m_target - m_counter;
+
+	// Convert from timer count to CPU cycles
+	Cycles delta = m_period.getFp() * ((Cycles)countDown + 1);
+	delta -= m_phase.getFp();
+
+	// Round up to the next CPU cycle
+	delta = FracCycles::fromFp(delta).ceil();
+	timeKeeper.setNextSyncDelta(m_instance, delta);
 }
 
 bool Timer::needsGpu()
 {
-	if (!m_freeRun)
-	{
-		LOG("Sync mode is not supported");
-		return false;
-	}
-
+	assert(!m_useSync, "Sync mode not supported!");
 	return ::needsGpu(m_clockSource.clock(m_instance));
 }
 
@@ -124,14 +194,15 @@ uint16_t Timer::getMode()
 {
 	uint16_t mode = 0;
 
-	mode |= (uint16_t)m_freeRun;
+	mode |= (uint16_t)m_useSync;
 	mode |= ((uint16_t)m_sync) << 1;
 	mode |= ((uint16_t)m_targetWrap) << 3;
+	mode |= ((uint16_t)m_targetIrq) << 4;
 	mode |= ((uint16_t)m_wrapIrq) << 5;
 	mode |= ((uint16_t)m_repeatIrq) << 6;
-	mode |= ((uint16_t)m_pulseIrq) << 7;
+	mode |= ((uint16_t)m_negateIrq) << 7;
 	mode |= ((uint16_t)m_clockSource.getClockSource()) << 8;
-	mode |= ((uint16_t)m_requestInterrupt) << 10;
+	mode |= ((uint16_t)(!m_interrupt)) << 10;
 	mode |= ((uint16_t)m_targetReached) << 11;
 	mode |= ((uint16_t)m_overflowReached) << 12;
 
@@ -144,30 +215,25 @@ uint16_t Timer::getMode()
 
 void Timer::setMode(uint16_t value)
 {
-	m_freeRun = value & 1;
+	m_useSync = value & 1;
 	m_sync = (SyncTimer)((value >> 1) & 3);
 	m_targetWrap = (value >> 3) & 1;
 	m_targetIrq = (value >> 4) & 1;
 	m_wrapIrq = (value >> 5) & 1;
 	m_repeatIrq = (value >> 6) & 1;
-	m_pulseIrq = (value >> 7) & 1;
+	m_negateIrq = (value >> 7) & 1;
 	m_clockSource = ClockSource::fromField((value >> 8) & 3);
-	m_requestInterrupt = (value >> 10) & 1;
+	
+	// Writing to mode resets the interrupt flag
+	m_interrupt = false;
 
 	// Writing to mode resets the counter
 	m_counter = 0;
 
-	if (m_requestInterrupt)
-	{
-		LOG("Unsupported timer IRQ request");
-		return;
-	}
-
-	if (!m_freeRun)
-	{
-		LOG("Only free run is supported 0x" << std::hex << m_instance);
-		return;
-	}
+	assert(!m_wrapIrq, "Wrap IRQ not supported");
+	assert(!((m_wrapIrq || m_targetIrq) && !m_repeatIrq), "One shot timer interrupts are not supported");
+	assert(!m_negateIrq, "Only pulse interrupts are supported");
+	assert(!m_useSync, "Sync mode is not supported");
 }
 
 uint16_t Timer::getTarget() const
@@ -225,7 +291,7 @@ void Timers::store(TimeKeeper& timeKeeper, InterruptState& irqState,
 	if (timer.needsGpu())
 		gpu.sync(timeKeeper, irqState);
 
-	timer.reconfigure(gpu);
+	timer.reconfigure(gpu, timeKeeper);
 }
 
 template void Timers::store<uint32_t>(TimeKeeper&, InterruptState&, Gpu&, uint32_t, uint32_t);
@@ -279,7 +345,17 @@ void Timers::videoTimingsChanged(TimeKeeper& timeKeeper, InterruptState& irqStat
 		if (timer.needsGpu())
 		{
 			timer.sync(timeKeeper, irqState);
-			timer.reconfigure(gpu);
+			timer.reconfigure(gpu, timeKeeper);
 		}
 	}
+}
+
+void Timers::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
+{
+	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_TIMER0))
+		m_timers[0].sync(timeKeeper, irqState);
+	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_TIMER1))
+		m_timers[1].sync(timeKeeper, irqState);
+	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_TIMER2))
+		m_timers[2].sync(timeKeeper, irqState);
 }

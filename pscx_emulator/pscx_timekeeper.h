@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <climits>
 
 using Cycles = uint64_t;
 
@@ -32,6 +33,8 @@ struct TimeSheet
 	void setNextSync(Cycles when);
 	bool needsSync(Cycles now) const;
 
+	Cycles getNextSync() const;
+
 private:
 	// Date of the last synchronization
 	Cycles m_lastSync;
@@ -43,7 +46,7 @@ private:
 // emulation advancement
 struct TimeKeeper
 {
-	TimeKeeper() : m_now(0x0) {}
+	TimeKeeper() : m_now(0x0), m_nextSync(ULLONG_MAX) {}
 
 	void tick(Cycles cycles);
 
@@ -52,12 +55,21 @@ struct TimeKeeper
 	Cycles sync(Peripheral who);
 
 	void setNextSyncDelta(Peripheral who, Cycles delta);
+
+	// Called by a peripheral when there's no asynchronous event scheduled.
+	void noSyncNeeded(Peripheral who);
+
+	bool syncPending() const;
 	bool needsSync(Peripheral who) const;
+
+	void updateSyncPending();
 
 private:
 	// Counter keeping track of the current date. Unit is a period of
 	// the CPU clock at 33.8685MHz
 	Cycles m_now;
+	// Next time a peripheral needs an update
+	Cycles m_nextSync;
 	// Time sheets for keeping track of the various peripherals
 	TimeSheet m_timesheets[4];
 };
@@ -116,6 +128,13 @@ struct FracCycles
 		Cycles numerator = getFp() << FracCycles::fracBits();
 
 		return FracCycles(numerator / denominator.getFp());
+	}
+
+	Cycles ceil() const
+	{
+		Cycles shift = FracCycles::fracBits();
+		Cycles align = (1 << shift) - 1;
+		return (m_cycles + align) >> shift;
 	}
 
 private:

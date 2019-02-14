@@ -299,7 +299,12 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 Cpu::InstructionType Cpu::runNextInstuction()
 {
 	// Synchronize the peripherals
-	m_inter.sync(m_timeKeeper);
+	// m_inter.sync(m_timeKeeper);
+	if (m_timeKeeper.syncPending())
+	{
+		m_inter.sync(m_timeKeeper);
+		m_timeKeeper.updateSyncPending();
+	}
 
 	// Store the address of the current instruction to save in 'EPC' in the case of an exception.
 	m_currentPc = m_pc;
@@ -1176,8 +1181,25 @@ Cpu::InstructionType Cpu::opcodeCOP1(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::opcodeCOP2(const Instruction& instruction)
 {
-	LOG("Unhandled GTE instruction 0x" << std::hex << instruction.getInstructionOpcode());
-	return INSTRUCTION_TYPE_COP2;
+	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
+	switch (instruction.getCopOpcodeValue())
+	{
+	case 0b00110:
+		instructionType = opcodeCTC2(instruction);
+		break;
+	default:
+		assert(0, "Unhandled GTE instruction");
+	}
+	return instructionType;
+}
+
+Cpu::InstructionType Cpu::opcodeCTC2(const Instruction& instruction)
+{
+	RegisterIndex cpuRegisterIndex = instruction.getRegisterTargetIndex();
+	uint32_t copRegister = instruction.getRegisterDestinationIndex().getRegisterIndex();
+
+	m_gte.setControl(copRegister, getRegisterValue(cpuRegisterIndex));
+	return INSTRUCTION_TYPE_CTC2;
 }
 
 Cpu::InstructionType Cpu::opcodeCOP3(const Instruction& instruction)

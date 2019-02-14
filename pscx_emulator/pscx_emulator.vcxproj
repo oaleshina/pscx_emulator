@@ -162,6 +162,7 @@
     <ClCompile Include="pscx_cop0.cpp" />
     <ClCompile Include="pscx_dma.cpp" />
     <ClCompile Include="pscx_gpu.cpp" />
+    <ClCompile Include="pscx_gte.cpp" />
     <ClCompile Include="pscx_instruction.cpp" />
     <ClCompile Include="pscx_interrupts.cpp" />
     <ClCompile Include="pscx_main.cpp" />
@@ -183,6 +184,7 @@
     <ClInclude Include="pscx_cpu.h" />
     <ClInclude Include="pscx_dma.h" />
     <ClInclude Include="pscx_gpu.h" />
+    <ClInclude Include="pscx_gte.h" />
     <ClInclude Include="pscx_instruction.h" />
     <ClInclude Include="pscx_interconnect.h" />
     <ClInclude Include="pscx_interrupts.h" />

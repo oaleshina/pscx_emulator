@@ -99,4 +99,6 @@ namespace pscx_memory
 	// CDROM controller
 	const Range CDROM         = Range(0x1f801800, 0x4);
 
+	// Joystick and memory card controller
+	const Range JOY_MEMCARD   = Range(0x1f801040, 32);
 }

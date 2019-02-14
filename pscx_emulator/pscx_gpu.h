@@ -227,7 +227,7 @@ struct Gpu
 		//m_interrupt(false),
 		m_dmaDirection(DmaDirection::DMA_DIRECTION_OFF),
 		m_gp0WordsRemaining(0x0),
-		//m_gp0CommandMethod(Gpu::gp0Nop),
+		m_gp0CommandMethod(&Gpu::gp0Nop),
 		m_gp0Mode(Gp0Mode::GP0_MODE_COMMAND),
 		m_gp0Interrupt(false),
 		m_vblankInterrupt(false),
@@ -296,17 +296,26 @@ struct Gpu
 	// GP0(0x01): Clear cache
 	void gp0ClearCache();
 
+	// GP0(0x02): Fill Rectangle
+	void gp0FillRect();
+
 	// GP0(0x28): Monochrome Opaque Quadrilateral
 	void gp0QuadMonoOpaque();
 
-	// GP0(0x2c): Textured Opaque Quadrilateral
+	// GP0(0x2c): Textured-Blended Opaque Quadrilateral
 	void gp0QuadTextureBlendOpaque();
+
+	// GP0(0x2d): Raw Textured Opaque Quadrilateral
+	void gp0QuadTextureRawOpaque();
 
 	// GP0(0x30): Shaded Opaque Triangle
 	void gp0TriangleShadedOpaque();
 
 	// GP0(0x38): Shaded Opaque Quadrilateral
 	void gp0QuadShadedOpaque();
+
+	// GP0(0x65): Opaque rectangle with raw texture
+	void gp0RectTextureRawOpaque();
 
 	// GP0(0xa0): Image Load
 	void gp0ImageLoad();

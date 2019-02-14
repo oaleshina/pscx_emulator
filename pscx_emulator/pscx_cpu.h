@@ -6,6 +6,7 @@
 #include "pscx_memory.h"
 #include "pscx_timekeeper.h"
 #include "pscx_cop0.h"
+#include "pscx_gte.h"
 
 using namespace pscx_memory;
 
@@ -94,6 +95,7 @@ struct Cpu
 		INSTRUCTION_TYPE_XORI,
 		INSTRUCTION_TYPE_COP1,
 		INSTRUCTION_TYPE_COP2,
+		INSTRUCTION_TYPE_CTC2,
 		INSTRUCTION_TYPE_COP3,
 		INSTRUCTION_TYPE_LWL,
 		INSTRUCTION_TYPE_LWR,
@@ -167,6 +169,9 @@ private:
 
 	// Coprocessor 0: System control
 	Cop0 m_cop0;
+
+	// Coprocessor 2: Geometry Transform Engine
+	Gte m_gte;
 
 	// HI register for division remainder and multiplication high result
 	uint32_t m_hi;
@@ -266,6 +271,7 @@ private:
 	InstructionType opcodeXORI (const Instruction& instruction); // Bitwise exclusive or immediate
 	InstructionType opcodeCOP1 (const Instruction& instruction); // Coprocessor 1 opcode ( does not exist on the Playstation )
 	InstructionType opcodeCOP2 (const Instruction& instruction); // Coprocessor 2 opcode ( Geometry Transform Engine )
+	InstructionType opcodeCTC2 (const Instruction& instruction); // Move to coprocessor 2 Control register
 	InstructionType opcodeCOP3 (const Instruction& instruction); // Coprocessor 3 opcode ( does not exist on the Playstation )
 	InstructionType opcodeLWL  (const Instruction& instruction); // Load word left ( little-endian only implementation )
 	InstructionType opcodeLWR  (const Instruction& instruction); // Load word right ( little-endian only implementation )

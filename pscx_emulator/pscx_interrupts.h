@@ -12,7 +12,16 @@ enum Interrupt
 	INTERRUPT_CDROM = 2,
 
 	// DMA transfer done
-	INTERRUPT_DMA = 3
+	INTERRUPT_DMA = 3,
+
+	// Timer0 interrupt
+	INTERRUPT_TIMER0 = 4,
+
+	// Timer1 interrupt
+	INTERRUPT_TIMER1 = 5,
+
+	// Timer2 interrupt
+	INTERRUPT_TIMER2 = 6
 };
 
 struct InterruptState

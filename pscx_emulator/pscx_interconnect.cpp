@@ -29,6 +29,12 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
 
+	if (JOY_MEMCARD.contains(targetPeripheralAddress, offset))
+	{
+		LOG("Unhandled read from PIO register 0x" << std::hex << targetPeripheralAddress);
+		return Instruction(~0);
+	}
+
 	if (EXPANSION_1.contains(targetPeripheralAddress, offset))
 		return Instruction(~0);
 
@@ -119,6 +125,12 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
 	{
 		LOG("Ignore store to RAM_SIZE register for now");
+		return;
+	}
+
+	if (JOY_MEMCARD.contains(targetPeripheralAddress, offset))
+	{
+		LOG("Unhandled write to Joy/Memcard register 0x" << std::hex << targetPeripheralAddress);
 		return;
 	}
 
@@ -379,6 +391,11 @@ void Interconnect::doDmaBlock(Port port)
 				else
 					srcWord = (addr - 4) & 0x1fffff; // Pointer to the previous entry
 			}
+			else if (port == Port::PORT_GPU)
+			{
+				LOG("DMA GPU READ");
+				srcWord = 0;
+			}
 			else
 			{
 				LOG("Unhandled DMA source port 0x" << std::hex << port);
@@ -443,6 +460,7 @@ void Interconnect::sync(TimeKeeper& timeKeeper)
 {
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_GPU))
 		m_gpu.sync(timeKeeper, m_irqState);
+	m_timers.sync(timeKeeper, m_irqState);
 }
 
 CacheControl Interconnect::getCacheControl() const

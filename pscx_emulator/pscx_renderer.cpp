@@ -33,7 +33,7 @@ Renderer::Renderer()
 
 	SDL_DisplayMode current;
 
-	m_window = SDL_CreateWindow("PSX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 512, SDL_WINDOW_OPENGL);
+	m_window = SDL_CreateWindow("PSX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
 
 	m_glContext = SDL_GL_CreateContext(m_window);
 
@@ -41,7 +41,7 @@ Renderer::Renderer()
 
 	SDL_GL_MakeCurrent(m_window, m_glContext);
 	
-	glViewport(0, 0, 1024, 512);
+	//glViewport(0, 0, 1024, 512);
 
 	// Clear the window
 	glClearColor(0, 0, 0, 1);

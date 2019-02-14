@@ -66,19 +66,19 @@ struct Timer
 		m_instance(instance),
 		m_counter(0x0),
 		m_target(0x0),
-		m_freeRun(false),
+		m_useSync(false),
 		m_sync(SyncTimer::SYNC_TIMER_PAUSE),
 		m_targetWrap(false),
 		m_targetIrq(false),
 		m_wrapIrq(false),
 		m_repeatIrq(false),
-		m_pulseIrq(false),
+		m_negateIrq(false),
 		m_clockSource(ClockSource::fromField(0x0)),
-		m_requestInterrupt(false),
 		m_targetReached(false),
 		m_overflowReached(false),
 		m_period(FracCycles::fromCycles(0x1)),
-		m_phase(FracCycles::fromCycles(0x0))
+		m_phase(FracCycles::fromCycles(0x0)),
+		m_interrupt(false)
 	{}
 
 	// Recomputes the entire timer's internal state. Must be called
@@ -87,10 +87,12 @@ struct Timer
 
 	// If the GPU is needed for the timings it must be synchronized
 	// before this function is called.
-	void reconfigure(Gpu gpu);
+	void reconfigure(Gpu gpu, TimeKeeper& timeKeeper);
 
 	// Synchronize this timer.
-	void sync(TimeKeeper timeKeeper, InterruptState irqState);
+	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);
+
+	void predictNextSync(TimeKeeper& timeKeeper);
 
 	// Return true if the timer relies on the GPU for the clock
 	// source or synchronization
@@ -117,8 +119,8 @@ private:
 	// Counter target
 	uint16_t m_target;
 
-	// If true do not synchronize the timer with an external signal
-	bool m_freeRun;
+	// If true we synchronize the timer with an external signal
+	bool m_useSync;
 
 	// The synchronization mode when "freeRun" is false. Each one of three timers
 	// interprets this mode differently.
@@ -138,14 +140,13 @@ private:
 	// of the interrupt conditions occurs again.
 	bool m_repeatIrq;
 
-	// Does it simply invert the IRQ signal each time an interrupt condition is encountered ?
-	bool m_pulseIrq;
+	// If true the irq signal is inverted each time an interrupt
+	// condition is reached instead of a single pulse.
+	bool m_negateIrq;
 
 	// Clock source (2 bits). Each time can either use the CPU
 	// SysClock or an alternative clock source.
 	ClockSource m_clockSource;
-
-	bool m_requestInterrupt;
 
 	// True if the target has been reached since the last read
 	bool m_targetReached;
@@ -159,6 +160,9 @@ private:
 
 	// Current position within a period of a counter tick
 	FracCycles m_phase;
+
+	// True if interrupt signal is active
+	bool m_interrupt;
 };
 
 struct Timers
@@ -178,6 +182,8 @@ struct Timers
 	// Called by the GPU when the video timings change since it can
 	// affect the timers that use them.
 	void videoTimingsChanged(TimeKeeper& timeKeeper, InterruptState& irqState, Gpu& gpu);
+
+	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);
 
 private:
 	// The three timers. They're mostly identical except that they

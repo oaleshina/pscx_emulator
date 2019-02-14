@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "pscx_gpu.h"
 
 std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
@@ -343,6 +345,10 @@ void Gpu::gp0(uint32_t value)
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0ClearCache;
 			break;
+		case 0x02:
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0FillRect;
+			break;
 		case 0x28:
 			commandParameters.gp0WordsRemaining = 5;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoOpaque;
@@ -351,6 +357,10 @@ void Gpu::gp0(uint32_t value)
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendOpaque;
 			break;
+		case 0x2d:
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawOpaque;
+			break;
 		case 0x30:
 			commandParameters.gp0WordsRemaining = 6;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleShadedOpaque;
@@ -358,6 +368,10 @@ void Gpu::gp0(uint32_t value)
 		case 0x38:
 			commandParameters.gp0WordsRemaining = 8;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedOpaque;
+			break;
+		case 0x65:
+			commandParameters.gp0WordsRemaining = 4;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureRawOpaque;
 			break;
 		case 0xa0:
 			commandParameters.gp0WordsRemaining = 3;
@@ -392,7 +406,8 @@ void Gpu::gp0(uint32_t value)
 			commandParameters.gp0CommandMethod = &Gpu::gp0MaskBitSetting;
 			break;
 		default:
-			LOG("Unhandled GP0 command 0x" << std::hex << value);
+			assert(0, "Unhandled GP0 command");
+			break;
 		}
 
 		m_gp0WordsRemaining = commandParameters.gp0WordsRemaining;
@@ -472,6 +487,27 @@ void Gpu::gp0ClearCache()
 	// Not implemented
 }
 
+void Gpu::gp0FillRect()
+{
+	Position topLeft = Position::fromGP0(m_gp0Command[1]);
+	Position size = Position::fromGP0(m_gp0Command[2]);
+
+	Position positions[] = {
+		topLeft,
+		Position(topLeft.getX() + size.getX(), topLeft.getY()),
+		Position(topLeft.getX(), topLeft.getY() + size.getY()),
+		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	};
+
+	Color colors[] = {
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0])
+	};
+	m_renderer.pushQuad(positions, colors);
+}
+
 void Gpu::gp0QuadMonoOpaque()
 {
 	Position positions[] = {
@@ -493,6 +529,26 @@ void Gpu::gp0QuadMonoOpaque()
 }
 
 void Gpu::gp0QuadTextureBlendOpaque()
+{
+	Position positions[] = {
+		Position::fromGP0(m_gp0Command[1]),
+		Position::fromGP0(m_gp0Command[3]),
+		Position::fromGP0(m_gp0Command[5]),
+		Position::fromGP0(m_gp0Command[7])
+	};
+
+	// We don't support textures for now, use the solid red color instead
+	Color colors[] = {
+		Color(0x80, 0x0, 0x0),
+		Color(0x80, 0x0, 0x0),
+		Color(0x80, 0x0, 0x0),
+		Color(0x80, 0x0, 0x0)
+	};
+
+	m_renderer.pushQuad(positions, colors);
+}
+
+void Gpu::gp0QuadTextureRawOpaque()
 {
 	Position positions[] = {
 		Position::fromGP0(m_gp0Command[1]),
@@ -546,6 +602,27 @@ void Gpu::gp0QuadShadedOpaque()
 		Color::fromGP0(m_gp0Command[6])
 	};
 
+	m_renderer.pushQuad(positions, colors);
+}
+
+void Gpu::gp0RectTextureRawOpaque()
+{
+	Position topLeft = Position::fromGP0(m_gp0Command[1]);
+	Position size = Position::fromGP0(m_gp0Command[3]);
+
+	Position positions[] = {
+		topLeft,
+		Position(topLeft.getX() + size.getX(), topLeft.getY()),
+		Position(topLeft.getX(), topLeft.getY() + size.getY()),
+		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	};
+
+	Color colors[] = {
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0])
+	};
 	m_renderer.pushQuad(positions, colors);
 }
 
