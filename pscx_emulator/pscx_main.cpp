@@ -4,6 +4,7 @@
 #include <string>
 
 #include "SDL.h"
+#include "SDL_events.h"
 #include "pscx_bios.h"
 #include "pscx_cpu.h"
 #include "pscx_interconnect.h"
@@ -96,6 +97,216 @@ static bool compareGoldenWithDump(const Cpu& cpu)
 	return true;
 }
 
+// ***************** Controller settings *****************
+enum Action
+{
+	ACTION_NONE,
+	ACTION_QUIT,
+	ACTION_DEBUG
+};
+
+static SDL_GameController* initializeSDL2Controllers()
+{
+	int numJoysticks = SDL_NumJoysticks();
+	if (numJoysticks < 0)
+	{
+		// Error occured
+		LOG("Can't enumerate joysticks, error code 0x" << std::hex << SDL_GetError());
+		return nullptr;
+	}
+
+	SDL_GameController* initializedController = nullptr;
+	for (int joystickId = 0; joystickId < numJoysticks; ++joystickId)
+	{
+		if (SDL_IsGameController(joystickId))
+		{
+			LOG("Attempt to open controller 0x" << std::hex << joystickId);
+
+			SDL_GameController* controller = SDL_GameControllerOpen(joystickId);
+			if (controller)
+			{
+				LOG("Successfully opened " << SDL_GameControllerName(joystick));
+				initializedController = controller;
+				break;
+			}
+			LOG("FAILED: " << SDL_GetError());
+		}
+	}
+
+	if (initializedController)
+		LOG("Controller suppport enabled");
+	else
+		LOG("No controller found");
+
+	return initializedController;
+}
+
+static void handleKeyboard(Profile* pad, SDL_Keycode keyCode, ButtonState state)
+{
+	Button button;
+	switch (keyCode)
+	{
+	case SDLK_RETURN:
+		button = Button::BUTTON_START;
+		break;
+	case SDLK_RSHIFT:
+		button = Button::BUTTON_SELECT;
+		break;
+	case SDLK_UP:
+		button = Button::BUTTON_DUP;
+		break;
+	case SDLK_DOWN:
+		button = Button::BUTTON_DDOWN;
+		break;
+	case SDLK_KP_2:
+		button = Button::BUTTON_CROSS;
+		break;
+	case SDLK_KP_4:
+		button = Button::BUTTON_SQUARE;
+		break;
+	case SDLK_KP_6:
+		button = Button::BUTTON_CIRCLE;
+		break;
+	case SDLK_KP_7:
+		button = Button::BUTTON_L1;
+		break;
+	case SDLK_KP_8:
+		button = Button::BUTTON_TRIANGLE;
+		break;
+	case SDLK_NUMLOCKCLEAR:
+		button = Button::BUTTON_L2;
+		break;
+	case SDLK_KP_9:
+		button = Button::BUTTON_R1;
+		break;
+	case SDLK_KP_MULTIPLY:
+		button = Button::BUTTON_R2;
+		break;
+	default:
+		// Unhandled key
+		return;
+	}
+	
+	pad->setButtonState(button, state);
+}
+
+static void handleController(Profile* pad, SDL_ControllerButtonEvent& buttonEvent, ButtonState state)
+{
+	// Map the playstation controller on the xbox360 one
+	Button button;
+	switch (buttonEvent.button)
+	{
+	case SDL_CONTROLLER_BUTTON_START:
+		button = Button::BUTTON_START;
+		break;
+	case SDL_CONTROLLER_BUTTON_BACK:
+		button = Button::BUTTON_SELECT;
+		break;
+	case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+		button = Button::BUTTON_DLEFT;
+		break;
+	case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+		button = Button::BUTTON_DRIGHT;
+		break;
+	case SDL_CONTROLLER_BUTTON_DPAD_UP:
+		button = Button::BUTTON_DUP;
+		break;
+	case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+		button = Button::BUTTON_DDOWN;
+		break;
+	case SDL_CONTROLLER_BUTTON_A:
+		button = Button::BUTTON_CROSS;
+		break;
+	case SDL_CONTROLLER_BUTTON_B:
+		button = Button::BUTTON_CIRCLE;
+		break;
+	case SDL_CONTROLLER_BUTTON_X:
+		button = Button::BUTTON_SQUARE;
+		break;
+	case SDL_CONTROLLER_BUTTON_Y:
+		button = Button::BUTTON_TRIANGLE;
+		break;
+	case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+		button = Button::BUTTON_L1;
+		break;
+	case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+		button = Button::BUTTON_R1;
+		break;
+	default:
+		// Unhandled button
+		return;
+	}
+
+	pad->setButtonState(button, state);
+}
+
+static void updateControllerAxis(Profile* pad, SDL_JoyAxisEvent& joyAxisEvent)
+{
+	Button button;
+	switch (joyAxisEvent.axis)
+	{
+	case SDL_CONTROLLER_AXIS_TRIGGERLEFT:
+		button = Button::BUTTON_L2;
+		break;
+	case SDL_CONTROLLER_AXIS_TRIGGERRIGHT:
+		button = Button::BUTTON_R2;
+		break;
+	default:
+		// Unhandled axis
+		return;
+	}
+
+	ButtonState buttonState = ButtonState::BUTTON_STATE_PRESSED;
+	if (joyAxisEvent.value < 0x4000)
+		buttonState = ButtonState::BUTTON_STATE_RELEASED;
+
+	pad->setButtonState(button, buttonState);
+}
+
+// Handle SDL events
+static Action handleEvents(SDL_Event& event, Cpu& cpu)
+{
+	while (SDL_PollEvent(&event))
+	{
+		if (event.type == SDL_QUIT)
+			return Action::ACTION_QUIT;
+		else if (event.type == SDL_KEYDOWN)
+		{
+			SDL_Keycode keyCode = event.key.keysym.sym;
+			switch (keyCode)
+			{
+			case SDLK_ESCAPE:
+				return Action::ACTION_QUIT;
+			case SDLK_PAUSE:
+				return Action::ACTION_DEBUG;
+			}
+			handleKeyboard(cpu.getPadProfiles()[0], keyCode, ButtonState::BUTTON_STATE_PRESSED);
+		}
+		else if (event.type == SDL_KEYUP)
+		{
+			SDL_Keycode keyCode = event.key.keysym.sym;
+			handleKeyboard(cpu.getPadProfiles()[0], keyCode, ButtonState::BUTTON_STATE_RELEASED);
+		}
+		else if (event.type == SDL_CONTROLLERBUTTONDOWN)
+		{
+			SDL_ControllerButtonEvent buttonEvent = event.cbutton;
+			handleController(cpu.getPadProfiles()[0], buttonEvent, ButtonState::BUTTON_STATE_PRESSED);
+		}
+		else if (event.type == SDL_CONTROLLERBUTTONUP)
+		{
+			SDL_ControllerButtonEvent buttonEvent = event.cbutton;
+			handleController(cpu.getPadProfiles()[0], buttonEvent, ButtonState::BUTTON_STATE_RELEASED);
+		}
+		else if (event.type == SDL_CONTROLLERAXISMOTION)
+		{
+			SDL_JoyAxisEvent joyAxisEvent = event.jaxis;
+			updateControllerAxis(cpu.getPadProfiles()[0], joyAxisEvent);
+		}
+	}
+
+	return Action::ACTION_NONE;
+}
+
 int main(int argc, char** argv)
 {
 	ArgSetParser parser(argc, argv);
@@ -140,6 +351,8 @@ int main(int argc, char** argv)
 	Interconnect interconnect(bios);
 	Cpu cpu(interconnect);
 
+	SDL_GameController* gameController = initializeSDL2Controllers();
+
 	bool done = false;
 
 	while (!done)
@@ -148,7 +361,7 @@ int main(int argc, char** argv)
 			cpu.runNextInstuction();
 
 		SDL_Event event;
-		while (SDL_PollEvent(&event))
+		/*while (SDL_PollEvent(&event))
 		{
 			if (event.type == SDL_QUIT)
 				done = true;
@@ -162,6 +375,11 @@ int main(int argc, char** argv)
 					done = true;
 				}
 			}
+		}*/
+		switch (handleEvents(event, cpu))
+		{
+		case Action::ACTION_QUIT:
+			done = true;
 		}
 	}
 

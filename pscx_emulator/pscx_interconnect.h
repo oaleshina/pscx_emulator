@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "pscx_common.h"
 #include "pscx_bios.h"
 #include "pscx_ram.h"
@@ -11,6 +13,7 @@
 #include "pscx_interrupts.h"
 #include "pscx_timers.h"
 #include "pscx_cdrom.h"
+#include "pscx_padmemcard.h"
 
 using namespace pscx_memory;
 
@@ -44,6 +47,8 @@ struct Interconnect
 
 	InterruptState getIrqState() const;
 
+	std::vector<Profile*> getPadProfiles();
+
 private:
 	
 	InterruptState m_irqState;
@@ -54,4 +59,5 @@ private:
 	Timers m_timers; // System timers
 	CacheControl m_cacheControl; // Cache Control register
 	CdRom m_cdRom; // CDROM controller
+	PadMemCard m_padMemCard; // Gamepad and memory card controller
 };

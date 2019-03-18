@@ -7,8 +7,12 @@
 #include "pscx_timekeeper.h"
 #include "pscx_cop0.h"
 #include "pscx_gte.h"
+#include "pscx_gamepad.h"
 
 using namespace pscx_memory;
+
+// Playstation CPU clock in MHz
+const float CPU_FREQ_MHZ = 33.8685f;
 
 // CPU state
 struct Cpu
@@ -123,6 +127,8 @@ struct Cpu
 
 	const uint32_t* getRegistersPtr() const;
 	const std::vector<uint32_t>& getInstructionsDump() const;
+
+	std::vector<Profile*> getPadProfiles();
 
 private:
 	struct RegisterData

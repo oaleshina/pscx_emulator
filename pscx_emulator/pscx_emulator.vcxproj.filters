@@ -72,6 +72,12 @@
     <ClCompile Include="pscx_gte.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pscx_gamepad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pscx_padmemcard.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pscx_bios.h">
@@ -123,6 +129,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pscx_gte.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_gamepad.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_padmemcard.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

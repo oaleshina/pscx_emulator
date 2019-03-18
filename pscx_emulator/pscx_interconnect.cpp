@@ -11,6 +11,8 @@ Interconnect::Interconnect(Bios bios) :
 template<typename T>
 Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 {
+	// timeKeeper.tick(5);
+
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
 	uint32_t offset = 0;
@@ -29,11 +31,8 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
 
-	if (JOY_MEMCARD.contains(targetPeripheralAddress, offset))
-	{
-		LOG("Unhandled read from PIO register 0x" << std::hex << targetPeripheralAddress);
-		return Instruction(~0);
-	}
+	if (PAD_MEMCARD.contains(targetPeripheralAddress, offset))
+		return Instruction(m_padMemCard.load<T>(timeKeeper, m_irqState, offset));
 
 	if (EXPANSION_1.contains(targetPeripheralAddress, offset))
 		return Instruction(~0);
@@ -128,9 +127,9 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 		return;
 	}
 
-	if (JOY_MEMCARD.contains(targetPeripheralAddress, offset))
+	if (PAD_MEMCARD.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Unhandled write to Joy/Memcard register 0x" << std::hex << targetPeripheralAddress);
+		m_padMemCard.store<T>(timeKeeper, m_irqState, offset, value);
 		return;
 	}
 
@@ -460,6 +459,8 @@ void Interconnect::sync(TimeKeeper& timeKeeper)
 {
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_GPU))
 		m_gpu.sync(timeKeeper, m_irqState);
+	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_PAD_MEMCARD))
+		m_padMemCard.sync(timeKeeper, m_irqState);
 	m_timers.sync(timeKeeper, m_irqState);
 }
 
@@ -489,4 +490,9 @@ template Instruction Interconnect::loadInstruction<uint32_t>(uint32_t);
 InterruptState Interconnect::getIrqState() const
 {
 	return m_irqState;
+}
+
+std::vector<Profile*> Interconnect::getPadProfiles()
+{
+	return m_padMemCard.getPadProfiles();
 }

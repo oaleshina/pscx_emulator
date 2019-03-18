@@ -14,6 +14,11 @@ const std::vector<uint32_t>& Cpu::getInstructionsDump() const
 	return m_debugInstructions;
 }
 
+std::vector<Profile*> Cpu::getPadProfiles()
+{
+	return m_inter.getPadProfiles();
+}
+
 template<typename T>
 Instruction Cpu::load(uint32_t addr)
 {

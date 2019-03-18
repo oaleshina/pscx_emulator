@@ -13,7 +13,9 @@ enum Peripheral
 	PERIPHERAL_GPU = 0,
 	PERIPHERAL_TIMER0,
 	PERIPHERAL_TIMER1,
-	PERIPHERAL_TIMER2
+	PERIPHERAL_TIMER2,
+	// Gamepad/Memory Card controller
+	PERIPHERAL_PAD_MEMCARD
 };
 
 // Struct used to keep track of individual peripherals
@@ -71,7 +73,7 @@ private:
 	// Next time a peripheral needs an update
 	Cycles m_nextSync;
 	// Time sheets for keeping track of the various peripherals
-	TimeSheet m_timesheets[4];
+	TimeSheet m_timesheets[5];
 };
 
 // Fixed point representation of a cycle counter used to store non-integer cycle counts.

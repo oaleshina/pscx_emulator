@@ -261,11 +261,7 @@ template<typename T>
 void Timers::store(TimeKeeper& timeKeeper, InterruptState& irqState,
 	Gpu& gpu, uint32_t offset, T value)
 {
-	if (!std::is_same<uint32_t, T>::value && !std::is_same<uint16_t, T>::value)
-	{
-		LOG("Unhandled timer store");
-		return;
-	}
+	assert((std::is_same<uint32_t, T>::value || std::is_same<uint16_t, T>::value), "Unhandled timer store");
 
 	uint32_t instance = offset >> 4;
 
@@ -301,11 +297,7 @@ template void Timers::store<uint8_t >(TimeKeeper&, InterruptState&, Gpu&, uint32
 template<typename T>
 T Timers::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 {
-	if (!std::is_same<uint32_t, T>::value && !std::is_same<uint16_t, T>::value)
-	{
-		LOG("Unhandled timer load");
-		return ~0;
-	}
+	assert((std::is_same<uint32_t, T>::value || std::is_same<uint16_t, T>::value), "Unhandled timer load");
 
 	uint32_t instance = offset >> 4;
 

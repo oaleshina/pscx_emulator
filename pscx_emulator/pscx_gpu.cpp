@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include "pscx_gpu.h"
+#include "pscx_cpu.h"
 
 std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
 {
@@ -15,9 +16,6 @@ std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
 FracCycles Gpu::gpuToCpuClockRatio() const
 {
 	// First we convert the delta into GPU clock periods.
-	// CPU clock in MHz
-	float cpuClock = 33.8685f;
-	
 	// GPU clock in MHz
 	float gpuClock = 53.20f; // HardwareType::HARDWARE_TYPE_PAL
 	if (m_hardwareType == HardwareType::HARDWARE_TYPE_NTSC)
@@ -25,7 +23,7 @@ FracCycles Gpu::gpuToCpuClockRatio() const
 
 	// Clock ratio shifted 16 bits to the left
 	//return (gpuClock / cpuClock) * (float)CLOCK_RATIO_FRAC;
-	return FracCycles::fromF32(gpuClock / cpuClock);
+	return FracCycles::fromF32(gpuClock / CPU_FREQ_MHZ);
 }
 
 FracCycles Gpu::dotclockPeriod()
@@ -40,7 +38,9 @@ FracCycles Gpu::dotclockPeriod()
 
 FracCycles Gpu::dotclockPhase()
 {
-	return FracCycles::fromCycles(m_gpuClockPhase);
+	//return FracCycles::fromCycles(m_gpuClockPhase);
+	assert(0, "GPU dotclock phase is not implemented");
+	return 0;
 }
 
 FracCycles Gpu::hsyncPeriod()
@@ -360,6 +360,10 @@ void Gpu::gp0(uint32_t value)
 		case 0x2d:
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawOpaque;
+			break;
+		case 0x2f:
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendOpaque;
 			break;
 		case 0x30:
 			commandParameters.gp0WordsRemaining = 6;

@@ -30,7 +30,8 @@ void InterruptState::setInterruptMask(uint16_t mask)
 							  Interrupt::INTERRUPT_DMA,
 							  Interrupt::INTERRUPT_TIMER0,
 							  Interrupt::INTERRUPT_TIMER1,
-							  Interrupt::INTERRUPT_TIMER2 };
+							  Interrupt::INTERRUPT_TIMER2,
+							  Interrupt::INTERRUPT_PAD_MEMCARD };
 
 	uint16_t rem = mask;
 	for (size_t i = 0; i < _countof(supported); ++i)

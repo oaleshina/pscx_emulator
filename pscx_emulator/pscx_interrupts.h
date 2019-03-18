@@ -21,7 +21,10 @@ enum Interrupt
 	INTERRUPT_TIMER1 = 5,
 
 	// Timer2 interrupt
-	INTERRUPT_TIMER2 = 6
+	INTERRUPT_TIMER2 = 6,
+
+	// Gamepad and Memory Card controller interrupt
+	INTERRUPT_PAD_MEMCARD = 7
 };
 
 struct InterruptState
