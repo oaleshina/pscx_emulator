@@ -193,11 +193,8 @@ void PadMemCard::sendCommand(TimeKeeper& timeKeeper, uint8_t cmd)
 	m_helperBusTransfer.m_cyclesRemaining = transmissionDuration;
 	m_busState = BusState::BUS_STATE_TRANSFER;
 
-	if (m_dsrInterrupt)
-	{
-		// The DSR pulse follows immediately after the last byte.
-		timeKeeper.setNextSyncDelta(Peripheral::PERIPHERAL_PAD_MEMCARD, transmissionDuration);
-	}
+	// The DSR pulse follows immediately after the last byte.
+	timeKeeper.setNextSyncDelta(Peripheral::PERIPHERAL_PAD_MEMCARD, transmissionDuration);
 }
 
 uint32_t PadMemCard::getStat() const
@@ -210,7 +207,7 @@ uint32_t PadMemCard::getStat() const
 	// RX parity error should always be 0.
 	stat |= 0 << 3;
 	// Pretend the ack line ( active low ) is always high.
-	stat |= 0 << 7;
+	stat |= (uint32_t)m_dataSetReadySignal << 7;
 	stat |= (uint32_t)m_interruptLevel << 9;
 	stat |= 0 << 11;
 

@@ -373,12 +373,19 @@ Instruction Cpu::fetchInstruction()
 	uint32_t pc = m_currentPc;
 	CacheControl cacheControl = m_inter.getCacheControl();
 
-	// KSEG1 region is never cached
-	bool kseg1 = ((pc & 0xe0000000) == 0xa0000000);
-	if (!kseg1 && cacheControl.icacheEnabled())
+	// KUSEG and KSEG0 regions are cached. KSEG1 is uncached and
+	// KSEG2 doesn't contain any code.
+	bool cached = (pc < 0xa0000000);
+
+	if (cached && cacheControl.icacheEnabled())
 	{
-		// Cache tag: bits [31:12]
-		uint32_t tag = pc & 0xfffff000;
+		// The MSB is ignored: running from KUSEG or KSEG0 hits
+		// the same cachelines. So for instance addresses
+		// 0x00000000 and 0x90000000 have the same tag and you can
+		// jump from one to another without having to reload the cache.
+
+		// Cache tag: bits [30:12]
+		uint32_t tag = pc & 0x7ffff000;
 		// Cache line "bucket": bits [11:4]
 		uint32_t line = (pc >> 4) & 0xff;
 		// Index in the cache line: bits [3:2]

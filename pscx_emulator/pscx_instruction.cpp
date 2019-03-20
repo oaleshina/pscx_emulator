@@ -76,7 +76,7 @@ uint32_t ICacheLine::getValidIndex() const
 
 void ICacheLine::setTagValid(uint32_t pc)
 {
-	m_tagValid = pc & 0xfffff00c;
+	m_tagValid = pc & 0x7ffff00c;
 }
 
 void ICacheLine::invalidate()
