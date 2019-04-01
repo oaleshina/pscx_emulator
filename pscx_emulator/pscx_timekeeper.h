@@ -15,7 +15,9 @@ enum Peripheral
 	PERIPHERAL_TIMER1,
 	PERIPHERAL_TIMER2,
 	// Gamepad/Memory Card controller
-	PERIPHERAL_PAD_MEMCARD
+	PERIPHERAL_PAD_MEMCARD,
+	// CD-ROM controller
+	PERIPHERAL_CDROM
 };
 
 // Struct used to keep track of individual peripherals
@@ -32,10 +34,9 @@ struct TimeSheet
 	// time sicne the last sync.
 	Cycles sync(Cycles now);
 
+	Cycles getNextSync() const;
 	void setNextSync(Cycles when);
 	bool needsSync(Cycles now) const;
-
-	Cycles getNextSync() const;
 
 private:
 	// Date of the last synchronization
@@ -57,6 +58,8 @@ struct TimeKeeper
 	Cycles sync(Peripheral who);
 
 	void setNextSyncDelta(Peripheral who, Cycles delta);
+	// Set next sync only if it's closer than what's already configured.
+	void setNextSyncDeltaIfCloser(Peripheral who, Cycles delta);
 
 	// Called by a peripheral when there's no asynchronous event scheduled.
 	void noSyncNeeded(Peripheral who);
@@ -73,7 +76,7 @@ private:
 	// Next time a peripheral needs an update
 	Cycles m_nextSync;
 	// Time sheets for keeping track of the various peripherals
-	TimeSheet m_timesheets[5];
+	TimeSheet m_timesheets[6];
 };
 
 // Fixed point representation of a cycle counter used to store non-integer cycle counts.

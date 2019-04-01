@@ -2,9 +2,11 @@
 
 #include <iostream>
 
-Interconnect::Interconnect(Bios bios) :
+Interconnect::Interconnect(Bios bios, HardwareType hardwareType, const Disc* disc) :
 	m_bios(bios),
-	m_cacheControl(0x0)
+	m_gpu(hardwareType),
+	m_cacheControl(0x0),
+	m_cdRom(disc)
 {
 }
 
@@ -395,6 +397,10 @@ void Interconnect::doDmaBlock(Port port)
 				LOG("DMA GPU READ");
 				srcWord = 0;
 			}
+			else if (port == Port::PORT_CD_ROM)
+			{
+				srcWord = m_cdRom.dmaReadWord();
+			}
 			else
 			{
 				LOG("Unhandled DMA source port 0x" << std::hex << port);
@@ -462,6 +468,8 @@ void Interconnect::sync(TimeKeeper& timeKeeper)
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_PAD_MEMCARD))
 		m_padMemCard.sync(timeKeeper, m_irqState);
 	m_timers.sync(timeKeeper, m_irqState);
+	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_CDROM))
+		m_cdRom.sync(timeKeeper, m_irqState);
 }
 
 CacheControl Interconnect::getCacheControl() const

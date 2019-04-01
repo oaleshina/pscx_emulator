@@ -160,6 +160,8 @@
     <ClCompile Include="glad.c" />
     <ClCompile Include="pscx_cdrom.cpp" />
     <ClCompile Include="pscx_cop0.cpp" />
+    <ClCompile Include="pscx_crc.cpp" />
+    <ClCompile Include="pscx_disc.cpp" />
     <ClCompile Include="pscx_dma.cpp" />
     <ClCompile Include="pscx_gamepad.cpp" />
     <ClCompile Include="pscx_gpu.cpp" />
@@ -171,6 +173,7 @@
     <ClCompile Include="pscx_interconnect.cpp" />
     <ClCompile Include="pscx_bios.cpp" />
     <ClCompile Include="pscx_memory.cpp" />
+    <ClCompile Include="pscx_minutesecondframe.cpp" />
     <ClCompile Include="pscx_padmemcard.cpp" />
     <ClCompile Include="pscx_ram.cpp" />
     <ClCompile Include="pscx_renderer.cpp" />
@@ -184,6 +187,8 @@
     <ClInclude Include="pscx_common.h" />
     <ClInclude Include="pscx_cop0.h" />
     <ClInclude Include="pscx_cpu.h" />
+    <ClInclude Include="pscx_crc.h" />
+    <ClInclude Include="pscx_disc.h" />
     <ClInclude Include="pscx_dma.h" />
     <ClInclude Include="pscx_gamepad.h" />
     <ClInclude Include="pscx_gpu.h" />
@@ -192,6 +197,7 @@
     <ClInclude Include="pscx_interconnect.h" />
     <ClInclude Include="pscx_interrupts.h" />
     <ClInclude Include="pscx_memory.h" />
+    <ClInclude Include="pscx_minutesecondframe.h" />
     <ClInclude Include="pscx_padmemcard.h" />
     <ClInclude Include="pscx_ram.h" />
     <ClInclude Include="pscx_renderer.h" />

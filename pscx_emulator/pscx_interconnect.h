@@ -14,13 +14,14 @@
 #include "pscx_timers.h"
 #include "pscx_cdrom.h"
 #include "pscx_padmemcard.h"
+#include "pscx_disc.h"
 
 using namespace pscx_memory;
 
 // Global interconnect
 struct Interconnect
 {
-	Interconnect(Bios bios);
+	Interconnect(Bios bios, HardwareType hardwareType, const Disc* disc);
 
 	template<typename T>
 	Instruction load(TimeKeeper& timeKeeper, uint32_t addr);
@@ -55,7 +56,7 @@ private:
 	Bios m_bios; // Basic Input/Output memory
 	Ram m_ram; // Main RAM
 	Dma m_dma; // DMA registers
-	Gpu m_gpu; // Graphics Processir Unit
+	Gpu m_gpu; // Graphics Processor Unit
 	Timers m_timers; // System timers
 	CacheControl m_cacheControl; // Cache Control register
 	CdRom m_cdRom; // CDROM controller

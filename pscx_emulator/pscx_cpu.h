@@ -12,7 +12,7 @@
 using namespace pscx_memory;
 
 // Playstation CPU clock in MHz
-const float CPU_FREQ_MHZ = 33.8685f;
+const uint32_t CPU_FREQ_HZ = 33'868'500;
 
 // CPU state
 struct Cpu

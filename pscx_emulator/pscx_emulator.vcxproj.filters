@@ -78,6 +78,15 @@
     <ClCompile Include="pscx_padmemcard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pscx_disc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pscx_minutesecondframe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pscx_crc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pscx_bios.h">
@@ -135,6 +144,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pscx_padmemcard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_disc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_minutesecondframe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_crc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

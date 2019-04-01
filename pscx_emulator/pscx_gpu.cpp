@@ -16,14 +16,13 @@ std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
 FracCycles Gpu::gpuToCpuClockRatio() const
 {
 	// First we convert the delta into GPU clock periods.
-	// GPU clock in MHz
-	float gpuClock = 53.20f; // HardwareType::HARDWARE_TYPE_PAL
+	// GPU clock in Hz
+	uint32_t gpuClock = 53'200'000; // HardwareType::HARDWARE_TYPE_PAL
 	if (m_hardwareType == HardwareType::HARDWARE_TYPE_NTSC)
-		gpuClock = 53.69f;
+		gpuClock = 53'690'000;
 
 	// Clock ratio shifted 16 bits to the left
-	//return (gpuClock / cpuClock) * (float)CLOCK_RATIO_FRAC;
-	return FracCycles::fromF32(gpuClock / CPU_FREQ_MHZ);
+	return FracCycles::fromF32(gpuClock / (float)CPU_FREQ_HZ);
 }
 
 FracCycles Gpu::dotclockPeriod()

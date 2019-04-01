@@ -191,7 +191,7 @@ enum Gp0Mode
 
 struct Gpu
 {
-	Gpu() :
+	Gpu(HardwareType hardwareType) :
 		m_pageBaseX(0x0),
 		m_pageBaseY(0x0),
 		m_rectangleTextureXFlip(false),
@@ -235,7 +235,7 @@ struct Gpu
 		m_gpuClockPhase(0x0),
 		m_displayLine(0x0),
 		m_displayLineTick(0x0),
-		m_hardwareType(HardwareType::HARDWARE_TYPE_NTSC)
+		m_hardwareType(hardwareType)
 	{}
 
 	// Return the number of GPU clock cycles in a line and number of

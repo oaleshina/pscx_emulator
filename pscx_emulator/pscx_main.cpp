@@ -27,9 +27,10 @@ private:
 static void printUsageAndExit(const char* argv0)
 {
 	std::cerr
-	<< "Usage  : " << argv0 << " <Path to BIOS BIN> [options]\n"
+	<< "Usage  : " << argv0 << " <Path to BIOS BIN> [CDROM-bin-file] [options]\n"
 	<< "App options:\n"
 	<< "  -h    | --help                        Print this usage message\n"
+	<< "  -disc | --disc-iso-format             Path to disc location\n"
 	<< "  -dump | --dump-instructions-registers Dump instructions and registers to the file\n"
 	<< "  -rt   | --run-testing                 Compare output results with the golden file\n"
 	<< std::endl;
@@ -319,14 +320,23 @@ int main(int argc, char** argv)
 	// Path to the BIOS
 	std::string biosPath = args[1];
 
+	bool discIsPresent                 = false;
 	bool dumpInstructionsAndRegsToFile = false;
 	bool runTesting                    = false;
+
+	std::string discPath;
 
 	// Parse command line arguments
 	for (size_t i = 2; i < args.size(); ++i)
 	{
 		if (args[i] == "-h" || args[i] == "--help")
 			printUsageAndExit(args[i].c_str());
+
+		if (args[i] == "-disc" || args[i] == "-disc-iso-format")
+		{
+			discIsPresent = true;
+			discPath = args[i + 1];
+		}
 
 		if (args[i] == "-dump" || args[i] == "--dump-instructions-registers")
 			dumpInstructionsAndRegsToFile = true;
@@ -348,7 +358,31 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	Interconnect interconnect(bios);
+	// Read bin disc format
+	Disc::ResultDisc resultDisc(nullptr, Disc::DiscStatus::DISC_STATUS_OK);
+	HardwareType videoStandard;
+	if (discIsPresent)
+	{
+		resultDisc = Disc::initializeFromPath(discPath);
+		if (resultDisc.m_status == Disc::DiscStatus::DISC_STATUS_OK)
+		{
+			Region region = resultDisc.m_disc->getRegion();
+			LOG("Disc region 0x" << std::hex << region);
+
+			switch (region)
+			{
+			case Region::REGION_EUROPE:
+				videoStandard = HardwareType::HARDWARE_TYPE_PAL;
+				break;
+			case Region::REGION_NORTH_AMERICA:
+			case Region::REGION_JAPAN:
+				videoStandard = HardwareType::HARDWARE_TYPE_NTSC;
+				break;
+			}
+		}
+	}
+
+	Interconnect interconnect(bios, videoStandard, resultDisc.m_disc);
 	Cpu cpu(interconnect);
 
 	SDL_GameController* gameController = initializeSDL2Controllers();
@@ -361,21 +395,6 @@ int main(int argc, char** argv)
 			cpu.runNextInstuction();
 
 		SDL_Event event;
-		/*while (SDL_PollEvent(&event))
-		{
-			if (event.type == SDL_QUIT)
-				done = true;
-			else if (event.type == SDL_WINDOWEVENT)
-				break;
-			else if (event.type == SDL_KEYDOWN)
-			{
-				switch (event.key.keysym.sym)
-				{
-				case SDLK_ESCAPE:
-					done = true;
-				}
-			}
-		}*/
 		switch (handleEvents(event, cpu))
 		{
 		case Action::ACTION_QUIT:

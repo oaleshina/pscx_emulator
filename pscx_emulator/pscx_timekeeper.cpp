@@ -9,6 +9,11 @@ Cycles TimeSheet::sync(Cycles now)
 	return delta;
 }
 
+Cycles TimeSheet::getNextSync() const
+{
+	return m_nextSync;
+}
+
 void TimeSheet::setNextSync(Cycles when)
 {
 	m_nextSync = when;
@@ -17,11 +22,6 @@ void TimeSheet::setNextSync(Cycles when)
 bool TimeSheet::needsSync(Cycles now) const
 {
 	return m_nextSync <= now;
-}
-
-Cycles TimeSheet::getNextSync() const
-{
-	return m_nextSync;
 }
 
 // ********************** TimeKeeper implementation **********************
@@ -42,6 +42,13 @@ void TimeKeeper::setNextSyncDelta(Peripheral who, Cycles delta)
 
 	if (date < m_nextSync)
 		m_nextSync = date;
+}
+
+void TimeKeeper::setNextSyncDeltaIfCloser(Peripheral who, Cycles delta)
+{
+	Cycles date = m_now + delta;
+	if (m_timesheets[who].getNextSync() > date)
+		m_timesheets[who].setNextSync(date);
 }
 
 void TimeKeeper::noSyncNeeded(Peripheral who)
