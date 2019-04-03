@@ -1194,13 +1194,23 @@ Cpu::InstructionType Cpu::opcodeCOP1(const Instruction& instruction)
 Cpu::InstructionType Cpu::opcodeCOP2(const Instruction& instruction)
 {
 	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
-	switch (instruction.getCopOpcodeValue())
+
+	uint32_t copOpcode = instruction.getCopOpcodeValue();
+	if (copOpcode & 0x10)
 	{
-	case 0b00110:
-		instructionType = opcodeCTC2(instruction);
-		break;
-	default:
-		assert(0, "Unhandled GTE instruction");
+		// GTE command.
+		m_gte.command(instruction.getInstructionOpcode());
+	}
+	else
+	{
+		switch (copOpcode)
+		{
+		case 0b00110:
+			instructionType = opcodeCTC2(instruction);
+			break;
+		default:
+			assert(0, "Unhandled GTE instruction");
+		}
 	}
 	return instructionType;
 }
@@ -1420,7 +1430,27 @@ Cpu::InstructionType Cpu::opcodeLWC1(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::opcodeLWC2(const Instruction& instruction)
 {
-	LOG("Unhandled GTE LWC 0x" << std::hex << instruction.getInstructionOpcode());
+	uint32_t addr = getRegisterValue(instruction.getRegisterSourceIndex()) + instruction.getSignExtendedImmediateValue();
+
+	// Address must be 32 bit aligned.
+	if (addr % 4 == 0)
+	{
+		Instruction instructionLoaded = load<uint32_t>(addr);
+		Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
+		if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+			instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+			return INSTRUCTION_TYPE_UNKNOWN;
+		if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+			return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+
+		// Send to coprocessor.
+		m_gte.setData(instruction.getRegisterTargetIndex().getRegisterIndex(), instructionLoaded.getInstructionOpcode());
+	}
+	else
+	{
+		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
+	}
+
 	return INSTRUCTION_TYPE_LWC2;
 }
 

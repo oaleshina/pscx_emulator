@@ -131,8 +131,8 @@ Disc::ResultDisc Disc::initializeFromPath(const std::string& path)
 		return ResultDisc(nullptr, DiscStatus::DISC_STATUS_INVALID_PATH);
 
 	// Use dummy id for now.
-	Disc disc(std::move(file), Region::REGION_JAPAN);
-	return disc.extractRegion();
+	Disc* disc = new Disc(std::move(file), Region::REGION_JAPAN);
+	return disc->extractRegion();
 }
 
 Region Disc::getRegion() const
