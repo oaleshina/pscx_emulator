@@ -30,7 +30,7 @@ static void printUsageAndExit(const char* argv0)
 	<< "Usage  : " << argv0 << " <Path to BIOS BIN> [CDROM-bin-file] [options]\n"
 	<< "App options:\n"
 	<< "  -h    | --help                        Print this usage message\n"
-	<< "  -disc | --disc-iso-format             Path to disc location\n"
+	<< "  -disc | --disc-bin-path               Path to disc location\n"
 	<< "  -dump | --dump-instructions-registers Dump instructions and registers to the file\n"
 	<< "  -rt   | --run-testing                 Compare output results with the golden file\n"
 	<< std::endl;
@@ -332,7 +332,7 @@ int main(int argc, char** argv)
 		if (args[i] == "-h" || args[i] == "--help")
 			printUsageAndExit(args[i].c_str());
 
-		if (args[i] == "-disc" || args[i] == "-disc-iso-format")
+		if (args[i] == "-disc" || args[i] == "--disc-bin-path")
 		{
 			discIsPresent = true;
 			discPath = args[i + 1];
@@ -360,7 +360,7 @@ int main(int argc, char** argv)
 
 	// Read bin disc format
 	Disc::ResultDisc resultDisc(nullptr, Disc::DiscStatus::DISC_STATUS_OK);
-	HardwareType videoStandard;
+	HardwareType videoStandard(HardwareType::HARDWARE_TYPE_NTSC);
 	if (discIsPresent)
 	{
 		resultDisc = Disc::initializeFromPath(discPath);

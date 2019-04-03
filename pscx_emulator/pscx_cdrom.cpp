@@ -267,7 +267,6 @@ void CdRom::sectorRead(InterruptState& irqState)
 
 	if (m_irqFlags == 0x0)
 	{
-		// TODO: wrap getDriveStatus() to return Fifo object
 		m_response = Fifo::fromBytes({ getDriveStatus() });
 
 		// Trigger interrupt.
@@ -416,7 +415,7 @@ void CdRom::command(TimeKeeper& timeKeeper, uint8_t cmd)
 		// Schedule the interrupt if needed.
 		if (CommandState::COMMAND_STATE_RX_PENDING == m_commandState)
 		{
-			timeKeeper.setNextSyncDelta(Peripheral::PERIPHERAL_CDROM, m_helperRxPending.m_irqDelay);
+			timeKeeper.setNextSyncDelta(Peripheral::PERIPHERAL_CDROM, (Cycles)m_helperRxPending.m_irqDelay);
 		}
 	}
 	else
@@ -427,7 +426,7 @@ void CdRom::command(TimeKeeper& timeKeeper, uint8_t cmd)
 
 	if (m_readState == ReadState::READ_STATE_READING)
 	{
-		timeKeeper.setNextSyncDeltaIfCloser(Peripheral::PERIPHERAL_CDROM, m_helperReading.m_delay);
+		timeKeeper.setNextSyncDeltaIfCloser(Peripheral::PERIPHERAL_CDROM, (Cycles)m_helperReading.m_delay);
 	}
 
 	m_params.clear();
@@ -496,7 +495,6 @@ CommandState CdRom::cmdSetLoc()
 		m_helperRxPending.m_rxDelay = 35'000;
 		m_helperRxPending.m_irqDelay = 35'000 + 5399;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
-		// TODO: byte representation
 		m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	}
 	else
@@ -504,7 +502,6 @@ CommandState CdRom::cmdSetLoc()
 		m_helperRxPending.m_rxDelay = 25'000;
 		m_helperRxPending.m_irqDelay = 25'000 + 6763;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_ERROR;
-		// TODO: byte representation
 		m_helperRxPending.m_response = Fifo::fromBytes({ 0x11, 0x80 });
 	}
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -519,7 +516,6 @@ CommandState CdRom::cmdReadN()
 	m_helperRxPending.m_rxDelay = 28'000;
 	m_helperRxPending.m_irqDelay = 28'000 + 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
@@ -533,7 +529,6 @@ CommandState CdRom::cmdPause()
 	m_helperRxPending.m_rxDelay = 25'000;
 	m_helperRxPending.m_irqDelay = 25'000 + 5393;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
@@ -550,7 +545,6 @@ CommandState CdRom::cmdSetMode()
 	m_helperRxPending.m_rxDelay = 22'000;
 	m_helperRxPending.m_irqDelay = 22'000 + 5391;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
@@ -558,7 +552,6 @@ CommandState CdRom::cmdSetMode()
 CommandState CdRom::cmdSeekl()
 {
 	// Make sure that we don't end up in the track 1's pregap.
-	// TODO: implement operator>
 	assert(m_seekTarget > MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0), "Seek to track 1 pregap");
 
 	m_readPosition = m_seekTarget;
@@ -567,7 +560,6 @@ CommandState CdRom::cmdSeekl()
 	m_helperRxPending.m_rxDelay = 35'000;
 	m_helperRxPending.m_irqDelay = 35'000 + 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
@@ -585,7 +577,6 @@ CommandState CdRom::cmdGetId()
 		m_helperRxPending.m_rxDelay = 26'000;
 		m_helperRxPending.m_irqDelay = 26'000 + 5401;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
-		// TODO: byte representation
 		m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	}
 	else
@@ -594,7 +585,6 @@ CommandState CdRom::cmdGetId()
 		m_helperRxPending.m_rxDelay = 20'000;
 		m_helperRxPending.m_irqDelay = 20'000 + 6776;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_ERROR;
-		// TODO: byte representation
 		m_helperRxPending.m_response = Fifo::fromBytes({ 0x11, 0x80 });
 	}
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -607,7 +597,6 @@ CommandState CdRom::cmdReadToc()
 	m_helperRxPending.m_rxDelay = 45'000;
 	m_helperRxPending.m_irqDelay = 45'000 + 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
@@ -661,7 +650,6 @@ CommandState CdRom::ackSeekl()
 	m_helperRxPending.m_rxDelay = 1'000'000;
 	m_helperRxPending.m_irqDelay = 1'000'000 + 1859;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
@@ -720,7 +708,6 @@ CommandState CdRom::ackReadToc()
 	m_helperRxPending.m_rxDelay = rxDelay;
 	m_helperRxPending.m_irqDelay = rxDelay + 1859;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
@@ -732,7 +719,6 @@ CommandState CdRom::ackPause()
 	m_helperRxPending.m_rxDelay = 2'000'000;
 	m_helperRxPending.m_irqDelay = 2'000'000 + 1858;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
-	// TODO: byte representation
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }

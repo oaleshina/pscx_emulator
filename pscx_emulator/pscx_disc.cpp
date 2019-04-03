@@ -126,7 +126,7 @@ Disc::Disc(std::ifstream&& file, Region region) :
 
 Disc::ResultDisc Disc::initializeFromPath(const std::string& path)
 {
-	std::ifstream file(path);
+	std::ifstream file(path, std::ios::in | std::ios::binary);
 	if (!file.good())
 		return ResultDisc(nullptr, DiscStatus::DISC_STATUS_INVALID_PATH);
 
@@ -155,17 +155,17 @@ Disc::ResultDisc Disc::extractRegion()
 	const uint8_t* rawSectorInBytes = ptr->getRawSectorInBytes();
 
 	const uint32_t licenseBlobSize = 112;
-	std::string licenseBlob((const char*)rawSectorInBytes, licenseBlobSize);
+	std::string licenseBlob(rawSectorInBytes, rawSectorInBytes + licenseBlobSize);
 
 	// There are spaces everywhere in the string ( including in the middle of some words ).
 	// Let's clean it up to identify the region of the disc.
-	licenseBlob.erase(std::remove(licenseBlob.begin(), licenseBlob.end(), ' '), licenseBlob.end());
+	licenseBlob.erase(std::remove_if(licenseBlob.begin(), licenseBlob.end(), [](char ch) { return ch < 'A' || ch > 'z'; }), licenseBlob.end());
 
 	if (licenseBlob.compare("LicensedbySonyComputerEntertainmentInc") == 0)
 		m_region = Region::REGION_JAPAN;
-	else if (licenseBlob.compare("LicensedbySonyComputerEntertainmentAmerica"))
+	else if (licenseBlob.compare("LicensedbySonyComputerEntertainmentAmerica") == 0)
 		m_region = Region::REGION_NORTH_AMERICA;
-	else if (licenseBlob.compare("LicensedbySonyComputerEntertainmentEurope"))
+	else if (licenseBlob.compare("LicensedbySonyComputerEntertainmentEurope") == 0)
 		m_region = Region::REGION_EUROPE;
 	else
 	{
@@ -193,7 +193,7 @@ XaSector::ResultXaSector Disc::readSector(const MinuteSecondFrame& minuteSecondF
 
 	// Convert in a byte offset in the bin file
 	uint64_t byteOffset = (uint64_t)sectorIndex * SECTOR_SIZE;
-	m_file.seekg(byteOffset);
+	m_file.seekg(byteOffset, std::ios_base::beg);
 
 	XaSector* sector = new XaSector;
 	if (!m_file.read((char*)sector->m_raw, SECTOR_SIZE))
