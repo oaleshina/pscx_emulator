@@ -114,7 +114,7 @@ MinuteSecondFrame XaSector::getMinuteSecondFrame() const
 
 const uint8_t* XaSector::getRawSectorInBytes() const
 {
-	return m_raw;
+	return m_raw + m_dataOffset;
 }
 
 // ********************** Disc implementation **********************
@@ -150,11 +150,11 @@ Disc::ResultDisc Disc::extractRegion()
 	if (sector.getSectorStatus() != XaSector::XaSectorStatus::XA_SECTOR_STATUS_OK)
 		return ResultDisc(nullptr, DiscStatus::DISC_STATUS_INVALID_DATA);
 
-	// An ASCII license string is in the first 112 bytes.
+	// An ASCII license string is in the first 76 bytes.
 	const XaSector* ptr = sector.getSectorPtr();
 	const uint8_t* rawSectorInBytes = ptr->getRawSectorInBytes();
 
-	const uint32_t licenseBlobSize = 112;
+	const uint32_t licenseBlobSize = 76;
 	std::string licenseBlob(rawSectorInBytes, rawSectorInBytes + licenseBlobSize);
 
 	// There are spaces everywhere in the string ( including in the middle of some words ).
