@@ -9,7 +9,7 @@ should work. Run the code in release mode.
 
 ## Implemented
 
-![PlayStation Boot Screen](https://github.com/oaleshina/pscx_emulator/playstation_boot_screen.png)
+![PlayStation Boot Screen](https://github.com/oaleshina/pscx_emulator/blob/master/playstation_boot_screen.png)
 
 * CPU
 * Instruction Cache
@@ -36,7 +36,7 @@ Visual studio 2017 C++11/14. Run code in release mode, as C++ containers were us
 
 To run the emulator, you should provide the BIOS binary file. Currently emulator works with SCPH1001 one.
 
-![PlayStation Bios Screen](https://github.com/oaleshina/pscx_emulator/playstation_bios_screen.png)
+![PlayStation Bios Screen](https://github.com/oaleshina/pscx_emulator/blob/master/playstation_bios_screen.png)
 
 Command line:
 
@@ -44,7 +44,7 @@ Command line:
 pscx_emulator.exe [path to the SCPH1001 BIOS] 
 ```
 
-![PlayStation Logo Screen](https://github.com/oaleshina/pscx_emulator/playstation_logo_screen.png)
+![PlayStation Logo Screen](https://github.com/oaleshina/pscx_emulator/blob/master/playstation_logo_screen.png)
 
 To run the game you should use such command line:
 
