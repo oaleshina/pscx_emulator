@@ -87,6 +87,9 @@
     <ClCompile Include="pscx_crc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pscx_gte_divider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pscx_bios.h">
@@ -153,6 +156,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pscx_crc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="pscx_gte_divider.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

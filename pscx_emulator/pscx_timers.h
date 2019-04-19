@@ -87,7 +87,7 @@ struct Timer
 
 	// If the GPU is needed for the timings it must be synchronized
 	// before this function is called.
-	void reconfigure(Gpu gpu, TimeKeeper& timeKeeper);
+	void reconfigure(const Gpu& gpu, TimeKeeper& timeKeeper);
 
 	// Synchronize this timer.
 	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);

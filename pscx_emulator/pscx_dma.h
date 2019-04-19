@@ -120,7 +120,12 @@ private:
 struct Dma
 {
 	Dma() : 
-		m_control(0x07654321) // Reset value 
+		m_control(0x07654321), // Reset value
+		m_masterIRQEnabled(false),
+		m_channelIRQEnabled(0x0),
+		m_channelIRQFlags(0x0),
+		m_forceIRQ(false),
+		m_IRQDummy(0x0)
 	{}
 
 	uint32_t getDmaControlRegister() const; // Retrieve the value of the control register

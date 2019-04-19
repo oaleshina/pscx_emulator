@@ -50,7 +50,7 @@ struct HorizontalRes
 	}
 
 	// Return the divider used to generate the dotclock from the GPU clock.
-	uint8_t dotclockDivider()
+	uint8_t dotclockDivider() const
 	{
 		uint8_t hr1 = (m_horizontalRes >> 1) & 0x3;
 		uint8_t hr2 = m_horizontalRes & 1;
@@ -248,17 +248,17 @@ struct Gpu
 	FracCycles gpuToCpuClockRatio() const;
 
 	// Return the period of the dotclock expressed in CPU block periods
-	FracCycles dotclockPeriod();
+	FracCycles dotclockPeriod() const;
 
 	// Return the current phase of the GPU dotclock relative to the CPU clock
-	FracCycles dotclockPhase();
+	FracCycles dotclockPhase() const;
 
 	// Return the period of the HSync signal in CPU clock periods
-	FracCycles hsyncPeriod();
+	FracCycles hsyncPeriod() const;
 
 	// Return the phase of the hsync (position within the line) in
 	// CPU clock periods
-	FracCycles hsyncPhase();
+	FracCycles hsyncPhase() const;
 
 	// Update the GPU state to its current status
 	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);
@@ -298,6 +298,9 @@ struct Gpu
 
 	// GP0(0x02): Fill Rectangle
 	void gp0FillRect();
+
+	// GP0(0x20): Monochrome Opaque Triangle
+	void gp0TriangleMonoOpaque();
 
 	// GP0(0x28): Monochrome Opaque Quadrilateral
 	void gp0QuadMonoOpaque();

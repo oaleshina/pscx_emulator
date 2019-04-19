@@ -7,15 +7,14 @@
 #include "pscx_crc.h"
 
 // ********************** XaSector implementation **********************
-XaSector::XaSector() :
-	m_dataOffset(0x0)
+XaSector::XaSector()
 {
 	memset(m_raw, 0x0, sizeof(m_raw));
 }
 
 uint8_t XaSector::getDataByte(uint16_t index) const
 {
-	return m_raw[m_dataOffset + index];
+	return m_raw[index];
 }
 
 XaSector::ResultXaSector XaSector::validateMode1_2(const MinuteSecondFrame& minuteSecondFrame)
@@ -66,9 +65,6 @@ XaSector::ResultXaSector XaSector::validateMode2()
 		return ResultXaSector(nullptr, XaSectorStatus::XA_SECTOR_STATUS_INVALID_DATA);
 	}
 
-	// Data starts right after the sub-header in both forms.
-	m_dataOffset = 24;
-
 	// Look for form in submode bit 5.
 	if (submode & 0x20)
 		return validateMode2Form2();
@@ -102,8 +98,7 @@ XaSector::ResultXaSector XaSector::validateMode2Form1() const
 
 XaSector::ResultXaSector XaSector::validateMode2Form2() const
 {
-	assert(0, "Unhandled Mode 2 Form 2 sector");
-	return ResultXaSector(nullptr, XaSectorStatus::XA_SECTOR_STATUS_INVALID_DATA);
+	return ResultXaSector(this, XaSectorStatus::XA_SECTOR_STATUS_OK);
 }
 
 MinuteSecondFrame XaSector::getMinuteSecondFrame() const
@@ -114,7 +109,7 @@ MinuteSecondFrame XaSector::getMinuteSecondFrame() const
 
 const uint8_t* XaSector::getRawSectorInBytes() const
 {
-	return m_raw + m_dataOffset;
+	return m_raw;
 }
 
 // ********************** Disc implementation **********************
@@ -152,7 +147,7 @@ Disc::ResultDisc Disc::extractRegion()
 
 	// An ASCII license string is in the first 76 bytes.
 	const XaSector* ptr = sector.getSectorPtr();
-	const uint8_t* rawSectorInBytes = ptr->getRawSectorInBytes();
+	const uint8_t* rawSectorInBytes = ptr->getRawSectorInBytes() + 24;
 
 	const uint32_t licenseBlobSize = 76;
 	std::string licenseBlob(rawSectorInBytes, rawSectorInBytes + licenseBlobSize);

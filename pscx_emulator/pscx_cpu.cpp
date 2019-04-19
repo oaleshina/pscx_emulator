@@ -41,17 +41,8 @@ void Cpu::cacheMaintenance(uint32_t addr, T value)
 	// use case for cache isolation.
 	CacheControl cacheControl = m_inter.getCacheControl();
 
-	if (!cacheControl.icacheEnabled())
-	{
-		LOG("Cache maintenance while instruction cache is disabled");
-		return;
-	}
-
-	if (!std::is_same<uint32_t, T>::value || value != 0)
-	{
-		LOG("Unsupported write while cache is isolated 0x" << std::hex << value);
-		return;
-	}
+	assert(cacheControl.icacheEnabled(), "Cache maintenance while instruction cache is disabled");
+	assert((std::is_same<uint32_t, T>::value) && value == 0, "Unsupported write while cache is isolated");
 
 	uint32_t line = (addr >> 4) & 0xff;
 
@@ -1196,15 +1187,26 @@ Cpu::InstructionType Cpu::opcodeCOP2(const Instruction& instruction)
 	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
 
 	uint32_t copOpcode = instruction.getCopOpcodeValue();
+
 	if (copOpcode & 0x10)
 	{
 		// GTE command.
 		m_gte.command(instruction.getInstructionOpcode());
+		instructionType = INSTRUCTION_TYPE_GTE_COMMAND;
 	}
 	else
 	{
 		switch (copOpcode)
 		{
+		case 0b00000:
+			instructionType = opcodeMFC2(instruction);
+			break;
+		case 0b00010:
+			instructionType = opcodeCFC2(instruction);
+			break;
+		case 0b00100:
+			instructionType = opcodeMTC2(instruction);
+			break;
 		case 0b00110:
 			instructionType = opcodeCTC2(instruction);
 			break;
@@ -1433,7 +1435,7 @@ Cpu::InstructionType Cpu::opcodeLWC2(const Instruction& instruction)
 	uint32_t addr = getRegisterValue(instruction.getRegisterSourceIndex()) + instruction.getSignExtendedImmediateValue();
 
 	// Address must be 32 bit aligned.
-	if (addr % 4 == 0)
+	if ((addr % 4) == 0)
 	{
 		Instruction instructionLoaded = load<uint32_t>(addr);
 		Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
@@ -1477,7 +1479,15 @@ Cpu::InstructionType Cpu::opcodeSWC1(const Instruction& instruction)
 
 Cpu::InstructionType Cpu::opcodeSWC2(const Instruction& instruction)
 {
-	LOG("Unhandled GTE SWC 0x" << std::hex << instruction.getInstructionOpcode());
+	uint32_t addr = getRegisterValue(instruction.getRegisterSourceIndex()) + instruction.getSignExtendedImmediateValue();
+	uint32_t data = m_gte.getData(instruction.getRegisterTargetIndex().getRegisterIndex());
+
+	// Address must be 32 bit aligned.
+	if ((addr % 4) == 0)
+		store<uint32_t>(addr, data);
+	else
+		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
+
 	return INSTRUCTION_TYPE_SWC2;
 }
 
@@ -1486,6 +1496,24 @@ Cpu::InstructionType Cpu::opcodeSWC3(const Instruction& instruction)
 	// Not supported by this coprocessor
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
 	return INSTRUCTION_TYPE_SWC3;
+}
+
+Cpu::InstructionType Cpu::opcodeMFC2(const Instruction& instruction)
+{
+	m_load = RegisterData(instruction.getRegisterTargetIndex(), m_gte.getData(instruction.getRegisterDestinationIndex().getRegisterIndex()));
+	return INSTRUCTION_TYPE_MFC2;
+}
+
+Cpu::InstructionType Cpu::opcodeCFC2(const Instruction& instruction)
+{
+	m_load = RegisterData(instruction.getRegisterTargetIndex(), m_gte.getControl(instruction.getRegisterDestinationIndex().getRegisterIndex()));
+	return INSTRUCTION_TYPE_CFC2;
+}
+
+Cpu::InstructionType Cpu::opcodeMTC2(const Instruction& instruction)
+{
+	m_gte.setData(instruction.getRegisterDestinationIndex().getRegisterIndex(), getRegisterValue(instruction.getRegisterTargetIndex()));
+	return INSTRUCTION_TYPE_MTC2;
 }
 
 Cpu::InstructionType Cpu::opcodeIllegal(const Instruction& instruction)

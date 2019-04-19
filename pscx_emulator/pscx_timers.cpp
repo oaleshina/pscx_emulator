@@ -55,7 +55,7 @@ uint8_t ClockSource::getClockSource() const
 }
 
 // ************* Timer implementation ******************
-void Timer::reconfigure(Gpu gpu, TimeKeeper& timeKeeper)
+void Timer::reconfigure(const Gpu& gpu, TimeKeeper& timeKeeper)
 {
 	switch (m_clockSource.clock(m_instance))
 	{

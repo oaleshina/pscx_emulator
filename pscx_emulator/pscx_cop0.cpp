@@ -1,4 +1,5 @@
 #include "pscx_cop0.h"
+#include <iostream>
 
 uint32_t Cop0::getStatusRegister() const
 {
@@ -63,8 +64,9 @@ uint32_t Cop0::enterException(Exception cause, uint32_t pc, bool inDelaySlot)
 
 void Cop0::returnFromException()
 {
+	//std::cout << "return from exception" << std::endl;
 	uint32_t mode = m_sr & 0x3f;
-	m_sr &= (~0x3f);
+	m_sr &= (~0xf);
 	m_sr |= (mode >> 2);
 }
 

@@ -33,11 +33,11 @@ bool MinuteSecondFrame::operator!=(const MinuteSecondFrame& minuteSecondFrame)
 	return byteMinuteSecondFrameLeft != byteMinuteSecondFrameRight;
 }
 
-bool MinuteSecondFrame::operator> (const MinuteSecondFrame& minuteSecondFrame)
+bool MinuteSecondFrame::operator>=(const MinuteSecondFrame& minuteSecondFrame)
 {
 	uint32_t byteMinuteSecondFrameLeft = this->packToU32BCD();
 	uint32_t byteMinuteSecondFrameRight = minuteSecondFrame.packToU32BCD();
-	return byteMinuteSecondFrameLeft > byteMinuteSecondFrameRight;
+	return byteMinuteSecondFrameLeft >= byteMinuteSecondFrameRight;
 }
 
 MinuteSecondFrame MinuteSecondFrame::createZeroTimestamp()
@@ -81,7 +81,7 @@ MinuteSecondFrame MinuteSecondFrame::getNextSector() const
 		return MinuteSecondFrame(m_minute, m_second, bcdInc(m_frame));
 
 	if (m_second < 0x59)
-		return MinuteSecondFrame(m_minute, bcdInc(m_second), m_frame);
+		return MinuteSecondFrame(m_minute, bcdInc(m_second), /*m_frame*/0x0);
 
 	if (m_minute < 0x99)
 		return MinuteSecondFrame(bcdInc(m_minute), 0x0, 0x0);

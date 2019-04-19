@@ -88,8 +88,6 @@ struct XaSector
 //private:
 	// The raw array of 2352 bytes contained in the sector.
 	uint8_t m_raw[SECTOR_SIZE];
-	// Offset of the first data byte in the sector (after the headers).
-	uint16_t m_dataOffset;
 };
 
 // Playstation disc

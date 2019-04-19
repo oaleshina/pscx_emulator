@@ -113,6 +113,10 @@ struct Cpu
 		INSTRUCTION_TYPE_SWC1,
 		INSTRUCTION_TYPE_SWC2,
 		INSTRUCTION_TYPE_SWC3,
+		INSTRUCTION_TYPE_MFC2,
+		INSTRUCTION_TYPE_CFC2,
+		INSTRUCTION_TYPE_MTC2,
+		INSTRUCTION_TYPE_GTE_COMMAND,
 		//INSTRUCTION_TYPE_ILLEGAL,
 		INSTRUCTION_TYPE_CACHE_ISOLATED,
 		INSTRUCTION_TYPE_NOT_IMPLEMENTED, // temporal enum variable for debugging
@@ -291,6 +295,9 @@ private:
 	InstructionType opcodeSWC1 (const Instruction& instruction); // Store word in Coprocessor 1
 	InstructionType opcodeSWC2 (const Instruction& instruction); // Store word in Coprocessor 2
 	InstructionType opcodeSWC3 (const Instruction& instruction); // Store word in Coprocessor 3
+	InstructionType opcodeMFC2 (const Instruction& instruction); // Move from coprocessor 2 data register
+	InstructionType opcodeCFC2 (const Instruction& instruction); // Move from coprocessor 2 control register
+	InstructionType opcodeMTC2 (const Instruction& instruction); // Move from coprocessor 2 data register
 	InstructionType opcodeIllegal(const Instruction& instruction); // Illegal instruction
 
 	void branch(uint32_t offset);

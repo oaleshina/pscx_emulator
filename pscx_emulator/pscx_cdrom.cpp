@@ -5,7 +5,7 @@
 #include "pscx_cpu.h"
 
 // ***************** Fifo implementation *********************
-Fifo Fifo::fromBytes(std::vector<uint8_t> bytes)
+Fifo Fifo::fromBytes(const std::vector<uint8_t>& bytes)
 {
 	Fifo fifo;
 	for (auto byte : bytes)
@@ -22,7 +22,7 @@ bool Fifo::isEmpty() const
 
 bool Fifo::isFull() const
 {
-	// The FIFO is full if both indexes point to the same cell
+	// The FIFO is full if both indices point to the same cell
 	// while having a different carry.
 	return m_writeIdx == (m_readIdx ^ 0x10);
 }
@@ -64,21 +64,26 @@ T CdRom::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 	switch (offset)
 	{
 	case 0x0:
+	{
 		value = getStatus();
 		break;
+	}
 	case 0x1:
-		if (m_response.isEmpty())
+	{
+		if(m_response.isEmpty()) 
 			LOG("CDROM response FIFO underflow");
-		
 		value = m_response.pop();
 		break;
+	}
 	case 0x3:
+	{
 		// IRQ mask/flags have the 3 MSB set when read.
 		if (m_index == 0x0)
 			value = m_irqMask | 0xe0;
 		else if (m_index == 0x1)
 			value = m_irqFlags | 0xe0;
 		break;
+	}
 	}
 	return (uint32_t)value;
 }
@@ -94,9 +99,7 @@ void CdRom::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t off
 
 	sync(timeKeeper, irqState);
 
-	// All writeable registers are 8 bit wide
-	// bool prevIrq = irq();
-
+	// All writeable registers are 8 bit wide.
 	switch (offset)
 	{
 	case 0x0:
@@ -127,12 +130,6 @@ void CdRom::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t off
 		}
 		break;
 	}
-
-	//if (!prevIrq && irq())
-	//{
-		// Interrupt rising edge
-	//	irqState.raiseAssert(Interrupt::INTERRUPT_CDROM);
-	//}
 }
 
 template void CdRom::store<uint32_t>(TimeKeeper&, InterruptState&, uint32_t, uint32_t);
@@ -231,9 +228,9 @@ void CdRom::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 
 uint8_t CdRom::readByte()
 {
-	assert(m_rxIndex < 0x800, "Unhandled CDROM long read");
+	assert(m_rxIndex < m_rxLen, "Unhandled CDROM long read");
 
-	uint8_t byte = m_rxSector->getDataByte(m_rxIndex);
+	uint8_t byte = m_rxSector->getDataByte(m_rxOffset + m_rxIndex);
 
 	assert(m_rxActive, "Read byte while !m_rxActive");
 	m_rxIndex += 1;
@@ -265,6 +262,19 @@ void CdRom::sectorRead(InterruptState& irqState)
 	assert(resultXaSector.getSectorStatus() == XaSector::XaSectorStatus::XA_SECTOR_STATUS_OK, "Couldn't read sector");
 	m_rxSector = resultXaSector.getSectorPtr();
 
+	if (m_readWholeSector)
+	{
+		// Read the entire sector except for the sync pattern
+		m_rxOffset = 12;
+		m_rxLen = 2340;
+	}
+	else 
+	{
+		// Read 2048 bytes after the Mode2 XA sub-header
+		m_rxOffset = 24;
+		m_rxLen = 2048;
+	}
+
 	if (m_irqFlags == 0x0)
 	{
 		m_response = Fifo::fromBytes({ getDriveStatus() });
@@ -285,7 +295,9 @@ uint8_t CdRom::getStatus()
 	status |= ((uint8_t)m_params.isEmpty()) << 3;
 	status |= ((uint8_t)(!m_params.isFull())) << 4;
 	status |= ((uint8_t)(!m_params.isEmpty())) << 5;
-	status |= 0 << 6;
+
+	bool dataAvailable = m_rxIndex < m_rxLen;
+	status |= (uint8_t)dataAvailable << 6;
 	// "Busy" flag
 	if (m_commandState == CommandState::COMMAND_STATE_RX_PENDING)
 		status |= 1 << 7;
@@ -351,7 +363,7 @@ void CdRom::setConfig(uint8_t config)
 		m_rxIndex = (m_rxIndex & ~7) + ((m_rxIndex & 4) << 1);
 	}
 
-	assert((config & 0x7f) == 0, "CDROM: unhandled config");
+	assert((config & 0x5f) == 0, "CDROM: unhandled config");
 }
 
 void CdRom::irqMask(uint8_t value)
@@ -362,7 +374,7 @@ void CdRom::irqMask(uint8_t value)
 uint32_t CdRom::getCyclesPerSector()
 {
 	// 1x speed: 75 sectors per second
-	return (CPU_FREQ_HZ / 75) >> m_doubleSpeed;
+	return (CPU_FREQ_HZ / 75) >> (uint32_t)m_doubleSpeed;
 }
 
 void CdRom::command(TimeKeeper& timeKeeper, uint8_t cmd)
@@ -385,6 +397,12 @@ void CdRom::command(TimeKeeper& timeKeeper, uint8_t cmd)
 		break;
 	case 0x09:
 		onAcknowledge = &CdRom::cmdPause;
+		break;
+	case 0x0a:
+		onAcknowledge = &CdRom::cmdInit;
+		break;
+	case 0x0c:
+		onAcknowledge = &CdRom::cmdDemute;
 		break;
 	case 0x0e:
 		onAcknowledge = &CdRom::cmdSetMode;
@@ -444,7 +462,7 @@ uint8_t CdRom::getDriveStatus() const
 		driveStatus |= ((uint8_t)reading) << 5;
 		return driveStatus;
 	}
-	// No disc, pretemd that the shell is open ( bit 4 ).
+	// No disc, pretend that the shell is open ( bit 4 ).
 	return 0x10;
 }
 
@@ -454,8 +472,6 @@ CommandState CdRom::cmdGetStat()
 	// and then put a 2nd byte 0x20 to signal the wrong number of params.
 	assert(m_params.isEmpty(), "Unexpected parmeters for CDROM GetStat command");
 
-	// m_response.push(0x10);
-	// triggerIrq(IrqCode::IRQ_CODE_OK);
 	Fifo response;
 	response.push(getDriveStatus());
 
@@ -533,17 +549,41 @@ CommandState CdRom::cmdPause()
 	return CommandState::COMMAND_STATE_RX_PENDING;
 }
 
+CommandState CdRom::cmdInit()
+{
+	m_onAcknowledge = &CdRom::ackInit;
+
+	m_helperRxPending.m_rxDelay = 58'000;
+	m_helperRxPending.m_irqDelay = 58'000 + 5401;
+	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
+	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
+	return CommandState::COMMAND_STATE_RX_PENDING;
+}
+
+CommandState CdRom::cmdDemute()
+{
+	// Fixme: irq delay.
+	m_helperRxPending.m_rxDelay = 32'000;
+	m_helperRxPending.m_irqDelay = 32'000; //+ 5401;
+	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
+	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
+	return CommandState::COMMAND_STATE_RX_PENDING;
+}
+
 CommandState CdRom::cmdSetMode()
 {
 	assert(m_params.len() == 1, "CDROM: bad number of parameters for SetMode");
 
 	uint8_t mode = m_params.pop();
+
 	m_doubleSpeed = mode & 0x80;
+	m_readWholeSector = mode & 0x20;
 
 	assert((mode & 0x7f) == 0x0, "CDROM: unhandled mode");
 
+	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 22'000;
-	m_helperRxPending.m_irqDelay = 22'000 + 5391;
+	m_helperRxPending.m_irqDelay = 22'000; //+ 5391;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -552,7 +592,7 @@ CommandState CdRom::cmdSetMode()
 CommandState CdRom::cmdSeekl()
 {
 	// Make sure that we don't end up in the track 1's pregap.
-	assert(m_seekTarget > MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0), "Seek to track 1 pregap");
+	assert(m_seekTarget >= MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0), "Seek to track 1 pregap");
 
 	m_readPosition = m_seekTarget;
 	m_onAcknowledge = &CdRom::ackSeekl;
@@ -647,8 +687,9 @@ CommandState CdRom::ackSeekl()
 {
 	// The seek itself takes a while to finish since the drive has
 	// to physically move the head.
+	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 1'000'000;
-	m_helperRxPending.m_irqDelay = 1'000'000 + 1859;
+	m_helperRxPending.m_irqDelay = 1'000'000; //+ 1859;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -687,8 +728,9 @@ CommandState CdRom::ackGetId()
 			regionSymbol
 			});
 
+		// Fixme: irq delay.
 		m_helperRxPending.m_rxDelay = 7'336;
-		m_helperRxPending.m_irqDelay = 7'336 + 12'376;
+		m_helperRxPending.m_irqDelay = 7'336; //+ 12'376;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 		m_helperRxPending.m_response = response;
 		return CommandState::COMMAND_STATE_RX_PENDING;
@@ -716,8 +758,23 @@ CommandState CdRom::ackPause()
 {
 	m_readState = ReadState::READ_STATE_IDLE;
 
+	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 2'000'000;
-	m_helperRxPending.m_irqDelay = 2'000'000 + 1858;
+	m_helperRxPending.m_irqDelay = 2'000'000; //+ 1858;
+	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
+	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
+	return CommandState::COMMAND_STATE_RX_PENDING;
+}
+
+CommandState CdRom::ackInit()
+{
+	m_readState = ReadState::READ_STATE_IDLE;
+	m_doubleSpeed = false;
+	m_readWholeSector = true;
+
+	// Fixme: irq delay.
+	m_helperRxPending.m_rxDelay = 2'000'000;
+	m_helperRxPending.m_irqDelay = 2'000'000; //+ 1870;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;

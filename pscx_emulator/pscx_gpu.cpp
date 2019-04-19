@@ -25,7 +25,7 @@ FracCycles Gpu::gpuToCpuClockRatio() const
 	return FracCycles::fromF32(gpuClock / (float)CPU_FREQ_HZ);
 }
 
-FracCycles Gpu::dotclockPeriod()
+FracCycles Gpu::dotclockPeriod() const
 {
 	FracCycles gpuClockPeriod = gpuToCpuClockRatio();
 	uint8_t dotclockDivider = m_hres.dotclockDivider();
@@ -35,14 +35,14 @@ FracCycles Gpu::dotclockPeriod()
 	return FracCycles::fromFp(period);
 }
 
-FracCycles Gpu::dotclockPhase()
+FracCycles Gpu::dotclockPhase() const
 {
 	//return FracCycles::fromCycles(m_gpuClockPhase);
 	assert(0, "GPU dotclock phase is not implemented");
 	return 0;
 }
 
-FracCycles Gpu::hsyncPeriod()
+FracCycles Gpu::hsyncPeriod() const
 {
 	std::pair<uint16_t, uint16_t> vModeTimings = getVModeTimings();
 	uint16_t ticksPerLine = vModeTimings.first;
@@ -53,7 +53,7 @@ FracCycles Gpu::hsyncPeriod()
 	return lineLen.divide(gpuToCpuClockRatio());
 }
 
-FracCycles Gpu::hsyncPhase()
+FracCycles Gpu::hsyncPhase() const
 {
 	FracCycles phase = FracCycles::fromCycles(m_displayLineTick);
 	FracCycles clockPhase = FracCycles::fromFp(m_gpuClockPhase);
@@ -199,11 +199,7 @@ uint16_t Gpu::displayedVramLine() const
 template<typename T>
 T Gpu::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 {
-	if (!std::is_same<uint32_t, T>::value)
-	{
-		LOG("Unhandled GPU load");
-		return ~0;
-	}
+	assert((std::is_same<uint32_t, T>::value), "Unhandled GPU load");
 
 	sync(timeKeeper, irqState);
 
@@ -224,11 +220,7 @@ template uint8_t  Gpu::load<uint8_t> (TimeKeeper&, InterruptState&, uint32_t);
 template<typename T>
 void Gpu::store(TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState, uint32_t offset, T value)
 {
-	if (!std::is_same<uint32_t, T>::value)
-	{
-		LOG("Unhandled GPU store");
-		return;
-	}
+	assert((std::is_same<uint32_t, T>::value), "Unhandled GPU store");
 
 	sync(timeKeeper, irqState);
 
@@ -325,7 +317,7 @@ void Gpu::gp0(uint32_t value)
 	if (m_gp0WordsRemaining == 0)
 	{
 		// We start a new GP0 command
-		uint32_t opcode = (value >> 24) & 0xff;
+		uint32_t opcode = (value >> 24);
 
 		struct CommandParameters
 		{
@@ -347,6 +339,10 @@ void Gpu::gp0(uint32_t value)
 		case 0x02:
 			commandParameters.gp0WordsRemaining = 3;
 			commandParameters.gp0CommandMethod = &Gpu::gp0FillRect;
+			break;
+		case 0x20:
+			commandParameters.gp0WordsRemaining = 4;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleMonoOpaque;
 			break;
 		case 0x28:
 			commandParameters.gp0WordsRemaining = 5;
@@ -371,6 +367,10 @@ void Gpu::gp0(uint32_t value)
 		case 0x38:
 			commandParameters.gp0WordsRemaining = 8;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedOpaque;
+			break;
+		case 0x64:
+			commandParameters.gp0WordsRemaining = 4;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureRawOpaque;
 			break;
 		case 0x65:
 			commandParameters.gp0WordsRemaining = 4;
@@ -476,7 +476,7 @@ void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, Timers& timers, InterruptS
 		timers.videoTimingsChanged(timeKeeper, irqState, *this);
 		break;
 	default:
-		LOG("Unhandled GP1 command 0x" << std::hex << value);
+		assert(0, "Unhandled GP1 command");
 	}
 }
 
@@ -509,6 +509,24 @@ void Gpu::gp0FillRect()
 		Color::fromGP0(m_gp0Command[0])
 	};
 	m_renderer.pushQuad(positions, colors);
+}
+
+void Gpu::gp0TriangleMonoOpaque()
+{
+	Position positions[] = {
+	Position::fromGP0(m_gp0Command[1]),
+	Position::fromGP0(m_gp0Command[2]),
+	Position::fromGP0(m_gp0Command[3])
+	};
+
+	// Only one color repeated 3 times
+	Color colors[] = {
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0])
+	};
+
+	m_renderer.pushTriangle(positions, colors);
 }
 
 void Gpu::gp0QuadMonoOpaque()

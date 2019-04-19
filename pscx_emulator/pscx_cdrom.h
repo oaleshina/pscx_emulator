@@ -59,7 +59,7 @@ struct Fifo
 		memset(m_buffer, 0x0, sizeof(m_buffer));
 	}
 
-	static Fifo fromBytes(std::vector<uint8_t> bytes);
+	static Fifo fromBytes(const std::vector<uint8_t>& bytes);
 
 	bool isEmpty() const;
 	bool isFull() const;
@@ -98,7 +98,10 @@ struct CdRom
 		m_readPosition(MinuteSecondFrame::createZeroTimestamp()),
 		m_doubleSpeed(false),
 		m_rxActive(false),
-		m_rxIndex(0x0)
+		m_rxIndex(0x0),
+		m_rxOffset(0x0),
+		m_rxLen(0x0),
+		m_readWholeSector(true)
 	{}
 
 	template<typename T>
@@ -149,6 +152,10 @@ struct CdRom
 	CommandState cmdReadN();
 	// Stop reading sectors, but remain at the same position on the disc.
 	CommandState cmdPause();
+	// Reinitialize the CD ROM controller.
+	CommandState cmdInit();
+	// Demute CDROM audio playback.
+	CommandState cmdDemute();
 	// Configure the behaviour of the CDROM drive
 	CommandState cmdSetMode();
 	// Execute seek. Target is given by previous SetLoc command.
@@ -170,6 +177,7 @@ struct CdRom
 	CommandState ackGetId();
 	CommandState ackReadToc();
 	CommandState ackPause();
+	CommandState ackInit();
 
 	void pushParam(uint8_t param);
 
@@ -205,6 +213,9 @@ private:
 
 	struct Reading
 	{
+		Reading() :
+			m_delay(0x0)
+		{}
 		uint32_t m_delay;
 	} m_helperReading;
 
@@ -249,4 +260,13 @@ private:
 
 	// Index of the next byte to be read in the RX sector.
 	uint16_t m_rxIndex;
+
+	// Offset of m_rxIndex in the sector buffer
+	uint16_t m_rxOffset;
+	// Index of the last byte to be read in the RX sector
+	uint16_t m_rxLen;
+
+	// If true we read the whole sector except for the sync bytes
+	// (0x924 bytes), otherwise it only reads 0x800 bytes.
+	bool m_readWholeSector;
 };

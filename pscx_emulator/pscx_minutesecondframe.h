@@ -12,7 +12,7 @@ struct MinuteSecondFrame
 	uint8_t getFrame() const;
 
 	bool operator!=(const MinuteSecondFrame& minuteSecondFrame);
-	bool operator> (const MinuteSecondFrame& minuteSecondFrame);
+	bool operator>=(const MinuteSecondFrame& minuteSecondFrame);
 
 	// Create a 00:00:00 MSF timestamp
 	static MinuteSecondFrame createZeroTimestamp();

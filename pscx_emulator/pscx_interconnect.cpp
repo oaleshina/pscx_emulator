@@ -1,6 +1,7 @@
-#include "pscx_interconnect.h"
-
 #include <iostream>
+#include <cassert>
+
+#include "pscx_interconnect.h"
 
 Interconnect::Interconnect(Bios bios, HardwareType hardwareType, const Disc* disc) :
 	m_bios(bios),
@@ -49,6 +50,8 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 			irqControlValue = m_irqState.getInterruptStatus();
 		else if (offset = 0x4)
 			irqControlValue = m_irqState.getInterruptMask();
+		else
+			assert(0, "Unhandled IRQ load");
 		return Instruction(irqControlValue);
 	}
 
@@ -93,21 +96,13 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 		case 0:
 		{
 			// Expansion 1 base address
-			if (value != 0x1f000000)
-			{
-				LOG("Bad expansion 1 base address 0x" << std::hex << value);
-				return;
-			}
+			assert(value == 0x1f000000, "Bad expansion 1 base address");
 			break;
 		}
 		case 4:
 		{
 			// Expansion 2 base address
-			if (value != 0x1f802000)
-			{
-				LOG("Bad expansion 2 base address 0x" << std::hex << value);
-				return;
-			}
+			assert(value == 0x1f802000, "Bad expansion 2 base address");
 			break;
 		}
 		default:
@@ -137,13 +132,7 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (CACHE_CONTROL.contains(targetPeripheralAddress, offset))
 	{
-		//LOG("Ignore store to CACHE_CONTROL register for now");
-		if (!std::is_same<uint32_t, T>::value)
-		{
-			LOG("Unhandled cache control access");
-			return;
-		}
-
+		assert((std::is_same<uint32_t, T>::value), "Unhandled cache control access");
 		m_cacheControl = CacheControl(value);
 		return;
 	}
@@ -154,6 +143,8 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 			m_irqState.acknowledgeInterrupts(value);
 		else if (offset == 0x4)
 			m_irqState.setInterruptMask(value);
+		else
+			assert(0, "Unhandled IRQ store");
 		return;
 	}
 
@@ -177,7 +168,6 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
 	{
-		//LOG("Unhandled write to timer register 0x" << std::hex << offset << " 0x" << value);
 		m_timers.store<T>(timeKeeper, m_irqState, m_gpu, offset, value);
 		return;
 	}
@@ -194,12 +184,6 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 		return;
 	}
 
-	if (CDROM.contains(targetPeripheralAddress, offset))
-	{
-		LOG("Unaligned write to CDROM register 0x" << std::hex << offset);
-		return;
-	}
-
 	LOG("Unhandled store32 into address 0x" << std::hex << targetPeripheralAddress);
 }
 
@@ -210,11 +194,7 @@ template void Interconnect::store<uint8_t> (TimeKeeper&, uint32_t, uint8_t );
 template<typename T>
 T Interconnect::getDmaRegister(uint32_t offset) const
 {
-	if (!std::is_same<uint32_t, T>::value)
-	{
-		LOG("Unhandled DMA load");
-		return ~0;
-	}
+	assert((std::is_same<uint32_t, T>::value), "Unhandled DMA load");
 
 	uint32_t major = (offset & 0x70) >> 4;
 	uint32_t minor = offset & 0xf;
@@ -230,10 +210,7 @@ T Interconnect::getDmaRegister(uint32_t offset) const
 		else if (minor == 0x8)
 			return channel.getDmaChannelControlRegister();
 		else
-		{
-			LOG("Unhandled DMA read at 0x" << std::hex << offset);
-			return ~0;
-		}
+			assert(0, "Unhandled DMA read");
 	}
 	// Common DMA registers
 	else if (major == 0x7)
@@ -243,10 +220,7 @@ T Interconnect::getDmaRegister(uint32_t offset) const
 		else if (minor == 0x4)
 			return m_dma.getDmaInterruptRegister();
 		else
-		{
-			LOG("Unhandled DMA read at 0x" << std::hex << offset);
-			return ~0;
-		}
+			assert(0, "Unhandled DMA read");
 	}
 
 	/*switch(offset)
@@ -264,11 +238,7 @@ T Interconnect::getDmaRegister(uint32_t offset) const
 template<typename T>
 void Interconnect::setDmaRegister(uint32_t offset, T value)
 {
-	if (!std::is_same<uint32_t, T>::value)
-	{
-		LOG("Unhandled DMA store");
-		return;
-	}
+	assert((std::is_same<uint32_t, T>::value), "Unhandled DMA store");
 
 	uint32_t major = (offset & 0x70) >> 4;
 	uint32_t minor = offset & 0xf;
@@ -286,10 +256,7 @@ void Interconnect::setDmaRegister(uint32_t offset, T value)
 		else if (minor == 0x8)
 			channel.setDmaChannelControlRegister(value);
 		else
-		{
-			LOG("Unhandled DMA write 0x" << std::hex << offset << " 0x" << value);
-			return;
-		}
+			assert(0, "Unhandled DMA write");
 		
 		if (channel.isActiveChannel())
 			activePort = (Port)major;
@@ -302,10 +269,7 @@ void Interconnect::setDmaRegister(uint32_t offset, T value)
 		else if (minor == 0x4)
 			m_dma.setDmaInterruptRegister(value, m_irqState);
 		else
-		{
-			LOG("Unhandled DMA write 0x" << std::hex << offset << " 0x" << value);
-			return;
-		}
+			assert(0, "Unhandled DMA write");
 	}
 
 	/*switch(offset)
@@ -344,19 +308,15 @@ void Interconnect::doDmaBlock(Port port)
 {
 	Channel& channel = m_dma.getDmaChannelRegisterMutable(port);
 
-	int32_t increment = 0;
+	uint32_t increment = 0;
 	if (channel.getStep() == Step::STEP_INCREMENT) increment = 4;
-	else if (channel.getStep() == Step::STEP_DECREMENT) increment = -4;
+	else if (channel.getStep() == Step::STEP_DECREMENT) increment = (uint32_t)-4;
 
 	uint32_t addr = channel.getBaseAddress();
 
-	// Transfer size in words
-	if (channel.getSync() == Sync::SYNC_LINKED_LIST)
-	{
-		// Shouldn't happen since we shouldn't reach this code in linked list mode
-		LOG("Couldn't figure out DMA block transfer size");
-		return;
-	}
+	// Transfer size in words.
+	// Shouldn't happen since we shouldn't reach this code in linked list mode.
+	assert(channel.getSync() != Sync::SYNC_LINKED_LIST, "Couldn't figure out DMA block transfer size");
 
 	uint32_t transferSize = channel.getTransferSize();
 	while (transferSize > 0)
@@ -376,8 +336,7 @@ void Interconnect::doDmaBlock(Port port)
 			}
 			else
 			{
-				LOG("Unhandled DMA destination port 0x" << std::hex << port);
-				return;
+				assert(0, "Unhandled DMA destination port");
 			}
 			break;
 		}
@@ -403,8 +362,7 @@ void Interconnect::doDmaBlock(Port port)
 			}
 			else
 			{
-				LOG("Unhandled DMA source port 0x" << std::hex << port);
-				return;
+				assert(0, "Unhandled DMA source port");
 			}
 			m_ram.store<uint32_t>(currentAddr, srcWord);
 		}
@@ -420,17 +378,8 @@ void Interconnect::doDmaLinkedList(Port port)
 
 	uint32_t addr = channel.getBaseAddress() & 0x1ffffc;
 
-	if (channel.getDirection() == Direction::DIRECTION_TO_RAM)
-	{
-		LOG("Invalid DMA direction for linked list mode");
-		return;
-	}
-
-	if (port != Port::PORT_GPU)
-	{
-		LOG("Attempted linked list DMA on port 0x" << std::hex << port);
-		return;
-	}
+	assert(channel.getDirection() != Direction::DIRECTION_TO_RAM, "Invalid DMA direction for linked list mode");
+	assert(port == Port::PORT_GPU, "Attempted linked list DMA on port");
 
 	while (true)
 	{
