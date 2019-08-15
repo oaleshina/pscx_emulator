@@ -210,6 +210,7 @@ struct Gpu
 		m_drawingAreaTop(0x0),
 		m_drawingAreaRight(0x0),
 		m_drawingAreaBottom(0x0),
+		m_drawingOffset(std::make_pair(0x0, 0x0)),
 		m_field(Field::FIELD_TOP),
 		m_textureDisable(false),
 		m_hres(HorizontalRes::createFromFields(0x0, 0x0)),
@@ -235,7 +236,8 @@ struct Gpu
 		m_gpuClockPhase(0x0),
 		m_displayLine(0x0),
 		m_displayLineTick(0x0),
-		m_hardwareType(hardwareType)
+		m_hardwareType(hardwareType),
+		m_readWord(0x0)
 	{}
 
 	// Return the number of GPU clock cycles in a line and number of
@@ -317,6 +319,12 @@ struct Gpu
 	// GP0(0x38): Shaded Opaque Quadrilateral
 	void gp0QuadShadedOpaque();
 
+	// GP0(0x60): Opaque monochrome rectangle
+	void gp0RectOpaque();
+
+	// GP0(0x64): Opaque rectangle with texture blending
+	void gp0RectTextureBlendOpaque();
+
 	// GP0(0x65): Opaque rectangle with raw texture
 	void gp0RectTextureRawOpaque();
 
@@ -370,6 +378,9 @@ struct Gpu
 
 	// GP1(0x08): Display Mode
 	void gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
+
+	// GP1(0x10): Return various GPU state information in the GPUREAD register
+	void gp1GetInfo(uint32_t value);
 
 private:
 	// Texture page base X coordinate ( 4 bits, 64 byte increment )
@@ -460,6 +471,9 @@ private:
 	// Bottom-most line of drawing area
 	uint16_t m_drawingAreaBottom;
 
+	// Drawing offset in the framebuffer
+	std::pair<int16_t, int16_t> m_drawingOffset;
+
 	// First column of the display area in VRAM
 	uint16_t m_displayVramXStart;
 
@@ -515,4 +529,7 @@ private:
 
 	// Hardware type (PAL or NTSC)
 	HardwareType m_hardwareType;
+
+	// Next word returned by the GPUREAD command
+	uint32_t m_readWord;
 };

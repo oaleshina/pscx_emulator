@@ -108,12 +108,18 @@ void CdRom::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t off
 	case 0x1:
 		if (m_index == 0x0)
 			command(timeKeeper, (uint8_t)value);
+		else if (m_index == 0x3)
+			m_mixer.m_cdRightToSpuRight = value;
 		break;
 	case 0x2:
 		if (m_index == 0x0)
 			pushParam((uint8_t)value);
 		else if (m_index == 0x1)
 			irqMask((uint8_t)value);
+		else if (m_index == 0x2)
+			m_mixer.m_cdLeftToSpuLeft = value;
+		else if (m_index == 0x3)
+			m_mixer.m_cdRightToSpuLeft = value;
 		break;
 	case 0x3:
 		if (m_index == 0x0)
@@ -128,6 +134,10 @@ void CdRom::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t off
 
 			assert((value & 0xa0) == 0x0, "Unhandled CDROM 3.1");
 		}
+		else if (m_index == 0x2)
+			m_mixer.m_cdLeftToSpuRight = value;
+		else if (m_index == 0x3)
+			LOG("CDROM Mixer apply 0x" << std::hex << value);
 		break;
 	}
 }
@@ -247,6 +257,15 @@ uint32_t CdRom::dmaReadWord()
 
 	// Pack in a little endian word.
 	return b0 | (b1 << 8) | (b2 << 16) | (b3 << 24);
+}
+
+void CdRom::doSeek()
+{
+	// Make sure we don't end up in track1's pregap.
+	assert(m_seekTarget >= MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0), "Seek to track 1 pregap");
+
+	m_readPosition = m_seekTarget;
+	m_seekTargetPending = false;
 }
 
 const Disc* CdRom::getDiscOrDie()
@@ -505,6 +524,8 @@ CommandState CdRom::cmdSetLoc()
 	uint8_t frame  = m_params.pop();
 
 	m_seekTarget = MinuteSecondFrame::fromBCD(minute, second, frame);
+	m_seekTargetPending = true;
+	m_seekTargetPending = true;
 
 	if (m_disc)
 	{
@@ -526,6 +547,7 @@ CommandState CdRom::cmdSetLoc()
 CommandState CdRom::cmdReadN()
 {
 	assert(m_readState == ReadState::READ_STATE_IDLE, "CDROM read command while we're already reading");
+	if (m_seekTargetPending) doSeek();
 	m_helperReading.m_delay = getCyclesPerSector();
 	m_readState = ReadState::READ_STATE_READING;
 
@@ -591,10 +613,7 @@ CommandState CdRom::cmdSetMode()
 
 CommandState CdRom::cmdSeekl()
 {
-	// Make sure that we don't end up in the track 1's pregap.
-	assert(m_seekTarget >= MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0), "Seek to track 1 pregap");
-
-	m_readPosition = m_seekTarget;
+	doSeek();
 	m_onAcknowledge = &CdRom::ackSeekl;
 
 	m_helperRxPending.m_rxDelay = 35'000;
@@ -746,6 +765,8 @@ CommandState CdRom::ackReadToc()
 	uint32_t rxDelay = 11'000;
 	if (m_disc)
 		rxDelay = 16'000'000;
+
+	m_readState = ReadState::READ_STATE_IDLE;
 	
 	m_helperRxPending.m_rxDelay = rxDelay;
 	m_helperRxPending.m_irqDelay = rxDelay + 1859;
@@ -768,6 +789,9 @@ CommandState CdRom::ackPause()
 
 CommandState CdRom::ackInit()
 {
+	m_readPosition = MinuteSecondFrame::createZeroTimestamp();
+	m_seekTarget = MinuteSecondFrame::createZeroTimestamp();
+
 	m_readState = ReadState::READ_STATE_IDLE;
 	m_doubleSpeed = false;
 	m_readWholeSector = true;

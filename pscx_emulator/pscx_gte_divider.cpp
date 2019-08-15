@@ -37,7 +37,7 @@ static const uint8_t UNSIGNED_NEWTOWN_RAPHSON_TABLE[] = {
 	0x00,
 };
 
-static uint32_t calculateLeadingZeros(uint16_t value)
+uint32_t calculateLeadingZeros(uint16_t value)
 {
 	uint16_t inputValue = value;
 

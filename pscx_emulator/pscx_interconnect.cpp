@@ -4,10 +4,18 @@
 #include "pscx_interconnect.h"
 
 Interconnect::Interconnect(Bios bios, HardwareType hardwareType, const Disc* disc) :
-	m_bios(bios),
-	m_gpu(hardwareType),
-	m_cacheControl(0x0),
-	m_cdRom(disc)
+	m_irqState(new InterruptState),
+	m_bios(new Bios(bios)),
+	m_ram(new Ram),
+	m_scratchPad(new ScratchPad),
+	m_dma(new Dma),
+	m_gpu(new Gpu(hardwareType)),
+	m_spu(new Spu),
+	m_timers(new Timers),
+	m_cacheControl(new CacheControl(0x0)),
+	m_cdRom(new CdRom(disc)),
+	m_padMemCard(new PadMemCard),
+	m_ramSize(0x0)
 {
 }
 
@@ -20,22 +28,28 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 
 	uint32_t offset = 0;
 	if (BIOS.contains(targetPeripheralAddress, offset))
-		return Instruction(m_bios.load<T>(offset));
+		return Instruction(m_bios->load<T>(offset));
 
 	if (RAM.contains(targetPeripheralAddress, offset))
-		return Instruction(m_ram.load<T>(offset));
+		return Instruction(m_ram->load<T>(offset));
+
+	if (SCRATCH_PAD.contains(targetPeripheralAddress, offset))
+	{
+		assert(addr <= 0xa0000000, "ScratchPad access through uncached memory");
+		return Instruction(m_scratchPad->load<T>(offset));
+	}
 
 	if (MEM_CONTROL.contains(targetPeripheralAddress, offset))
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
 
 	if (SPU.contains(targetPeripheralAddress, offset))
-		return Instruction(0);
+		return Instruction(m_spu->load<T>(offset));
 
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
-		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
+		return Instruction(m_ramSize);
 
 	if (PAD_MEMCARD.contains(targetPeripheralAddress, offset))
-		return Instruction(m_padMemCard.load<T>(timeKeeper, m_irqState, offset));
+		return Instruction(m_padMemCard->load<T>(timeKeeper, *m_irqState, offset));
 
 	if (EXPANSION_1.contains(targetPeripheralAddress, offset))
 		return Instruction(~0);
@@ -47,9 +61,9 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 	{
 		uint32_t irqControlValue = 0x0;
 		if (offset == 0x0)
-			irqControlValue = m_irqState.getInterruptStatus();
+			irqControlValue = m_irqState->getInterruptStatus();
 		else if (offset = 0x4)
-			irqControlValue = m_irqState.getInterruptMask();
+			irqControlValue = m_irqState->getInterruptMask();
 		else
 			assert(0, "Unhandled IRQ load");
 		return Instruction(irqControlValue);
@@ -62,17 +76,23 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
-		return Instruction(m_gpu.load<T>(timeKeeper, m_irqState, offset));
+		return Instruction(m_gpu->load<T>(timeKeeper, *m_irqState, offset));
 	}
 
 	if (CDROM.contains(targetPeripheralAddress, offset))
 	{
-		return Instruction(m_cdRom.load<T>(timeKeeper, m_irqState, offset));
+		return Instruction(m_cdRom->load<T>(timeKeeper, *m_irqState, offset));
 	}
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
 	{
-		return Instruction(m_timers.load<T>(timeKeeper, m_irqState, offset));
+		return Instruction(m_timers->load<T>(timeKeeper, *m_irqState, offset));
+	}
+
+	if (MDEC.contains(targetPeripheralAddress, offset))
+	{
+		LOG("Unhandled load from MDEC register 0x" << std::hex << offset);
+		return Instruction(0);
 	}
 
 	LOG("Unhandled fetch32 at address 0x" << std::hex << addr);
@@ -114,35 +134,43 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (RAM.contains(targetPeripheralAddress, offset))
 	{
-		m_ram.store<T>(offset, value);
+		m_ram->store<T>(offset, value);
+		return;
+	}
+
+	if (SCRATCH_PAD.contains(targetPeripheralAddress, offset))
+	{
+		assert(addr <= 0xa0000000, "ScratchPad access through uncached memory");
+		m_scratchPad->store<T>(offset, value);
 		return;
 	}
 
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Ignore store to RAM_SIZE register for now");
+		assert((std::is_same<uint32_t, T>::value), "Unhandled RAM_SIZE access");
+		m_ramSize = value;
 		return;
 	}
 
 	if (PAD_MEMCARD.contains(targetPeripheralAddress, offset))
 	{
-		m_padMemCard.store<T>(timeKeeper, m_irqState, offset, value);
+		m_padMemCard->store<T>(timeKeeper, *m_irqState, offset, value);
 		return;
 	}
 
 	if (CACHE_CONTROL.contains(targetPeripheralAddress, offset))
 	{
 		assert((std::is_same<uint32_t, T>::value), "Unhandled cache control access");
-		m_cacheControl = CacheControl(value);
+		*m_cacheControl = CacheControl(value);
 		return;
 	}
 
 	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
 	{
 		if (offset == 0x0)
-			m_irqState.acknowledgeInterrupts(value);
+			m_irqState->acknowledgeInterrupts(value);
 		else if (offset == 0x4)
-			m_irqState.setInterruptMask(value);
+			m_irqState->setInterruptMask(value);
 		else
 			assert(0, "Unhandled IRQ store");
 		return;
@@ -156,25 +184,31 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (GPU.contains(targetPeripheralAddress, offset))
 	{
-		m_gpu.store<T>(timeKeeper, m_timers, m_irqState, offset, value);
+		m_gpu->store<T>(timeKeeper, *m_timers, *m_irqState, offset, value);
 		return;
 	}
 
 	if (CDROM.contains(targetPeripheralAddress, offset))
 	{
-		m_cdRom.store<T>(timeKeeper, m_irqState, offset, value);
+		m_cdRom->store<T>(timeKeeper, *m_irqState, offset, value);
+		return;
+	}
+
+	if (MDEC.contains(targetPeripheralAddress, offset))
+	{
+		LOG("Unhandled write to MDEC register 0x" << std::hex << offset);
 		return;
 	}
 
 	if (TIMERS.contains(targetPeripheralAddress, offset))
 	{
-		m_timers.store<T>(timeKeeper, m_irqState, m_gpu, offset, value);
+		m_timers->store<T>(timeKeeper, *m_irqState, *m_gpu, offset, value);
 		return;
 	}
 
 	if (SPU.contains(targetPeripheralAddress, offset))
 	{
-		LOG("Unaligned write to SPU register 0x" << std::hex << offset);
+		m_spu->store<T>(offset, value);
 		return;
 	}
 
@@ -202,7 +236,7 @@ T Interconnect::getDmaRegister(uint32_t offset) const
 	// Per-channel registers
 	if (major >= 0 && major <= 6)
 	{
-		const Channel& channel = m_dma.getDmaChannelRegister((Port)major);
+		const Channel& channel = m_dma->getDmaChannelRegister((Port)major);
 		if (minor == 0x0)
 			return channel.getBaseAddress();
 		else if (minor == 0x4)
@@ -216,9 +250,9 @@ T Interconnect::getDmaRegister(uint32_t offset) const
 	else if (major == 0x7)
 	{
 		if (minor == 0x0)
-			return m_dma.getDmaControlRegister();
+			return m_dma->getDmaControlRegister();
 		else if (minor == 0x4)
-			return m_dma.getDmaInterruptRegister();
+			return m_dma->getDmaInterruptRegister();
 		else
 			assert(0, "Unhandled DMA read");
 	}
@@ -248,7 +282,7 @@ void Interconnect::setDmaRegister(uint32_t offset, T value)
 	// Per-channel registers
 	if (major >= 0 && major <= 6)
 	{
-		Channel& channel = m_dma.getDmaChannelRegisterMutable((Port)major);
+		Channel& channel = m_dma->getDmaChannelRegisterMutable((Port)major);
 		if (minor == 0x0)
 			channel.setBaseAddress(value);
 		else if (minor == 0x4)
@@ -265,9 +299,9 @@ void Interconnect::setDmaRegister(uint32_t offset, T value)
 	else if (major == 0x7)
 	{
 		if (minor == 0x0)
-			m_dma.setDmaControlRegister(value);
+			m_dma->setDmaControlRegister(value);
 		else if (minor == 0x4)
-			m_dma.setDmaInterruptRegister(value, m_irqState);
+			m_dma->setDmaInterruptRegister(value, *m_irqState);
 		else
 			assert(0, "Unhandled DMA write");
 	}
@@ -293,7 +327,7 @@ void Interconnect::doDma(Port port)
 	// DMA transfer has been started, for now let's process everything in one pass
 	// ( i.e. no chopping or priority handling )
 
-	if (m_dma.getDmaChannelRegister(port).getSync() == Sync::SYNC_LINKED_LIST)
+	if (m_dma->getDmaChannelRegister(port).getSync() == Sync::SYNC_LINKED_LIST)
 	{
 		doDmaLinkedList(port);
 	}
@@ -301,12 +335,12 @@ void Interconnect::doDma(Port port)
 	{
 		doDmaBlock(port);
 	}
-	m_dma.done(port, m_irqState);
+	m_dma->done(port, *m_irqState);
 }
 
 void Interconnect::doDmaBlock(Port port)
 {
-	Channel& channel = m_dma.getDmaChannelRegisterMutable(port);
+	Channel& channel = m_dma->getDmaChannelRegisterMutable(port);
 
 	uint32_t increment = 0;
 	if (channel.getStep() == Step::STEP_INCREMENT) increment = 4;
@@ -328,14 +362,20 @@ void Interconnect::doDmaBlock(Port port)
 		{
 		case Direction::DIRECTION_FROM_RAM:
 		{
-			uint32_t srcWord = m_ram.load<uint32_t>(currentAddr);
+			uint32_t srcWord = m_ram->load<uint32_t>(currentAddr);
 
 			if (port == Port::PORT_GPU)
 			{
-				m_gpu.gp0(srcWord);
+				m_gpu->gp0(srcWord);
+			}
+			else if (port == Port::PORT_MDEC_IN)
+			{
+				// No implementation for now
+				std::cout << "MDEC port" << std::endl;
 			}
 			else
 			{
+				std::cout << port << std::endl;
 				assert(0, "Unhandled DMA destination port");
 			}
 			break;
@@ -358,13 +398,13 @@ void Interconnect::doDmaBlock(Port port)
 			}
 			else if (port == Port::PORT_CD_ROM)
 			{
-				srcWord = m_cdRom.dmaReadWord();
+				srcWord = m_cdRom->dmaReadWord();
 			}
 			else
 			{
 				assert(0, "Unhandled DMA source port");
 			}
-			m_ram.store<uint32_t>(currentAddr, srcWord);
+			m_ram->store<uint32_t>(currentAddr, srcWord);
 		}
 		}
 		addr += increment;
@@ -374,7 +414,7 @@ void Interconnect::doDmaBlock(Port port)
 
 void Interconnect::doDmaLinkedList(Port port)
 {
-	Channel& channel = m_dma.getDmaChannelRegisterMutable(port);
+	Channel& channel = m_dma->getDmaChannelRegisterMutable(port);
 
 	uint32_t addr = channel.getBaseAddress() & 0x1ffffc;
 
@@ -385,17 +425,17 @@ void Interconnect::doDmaLinkedList(Port port)
 	{
 		// In linked list mode, each entry starts with a "header" word. The high byte contains
 		// the number of words in the "packet" ( not counting the header word )
-		uint32_t header = m_ram.load<uint32_t>(addr);
+		uint32_t header = m_ram->load<uint32_t>(addr);
 
 		uint32_t remsz = header >> 24;
 		while (remsz > 0)
 		{
 			addr = (addr + 4) & 0x1ffffc;
 
-			uint32_t command = m_ram.load<uint32_t>(addr);
+			uint32_t command = m_ram->load<uint32_t>(addr);
 			
 			// Send command to the GPU
-			m_gpu.gp0(command);
+			m_gpu->gp0(command);
 			
 			remsz -= 1;
 		}
@@ -413,17 +453,17 @@ void Interconnect::doDmaLinkedList(Port port)
 void Interconnect::sync(TimeKeeper& timeKeeper)
 {
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_GPU))
-		m_gpu.sync(timeKeeper, m_irqState);
+		m_gpu->sync(timeKeeper, *m_irqState);
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_PAD_MEMCARD))
-		m_padMemCard.sync(timeKeeper, m_irqState);
-	m_timers.sync(timeKeeper, m_irqState);
+		m_padMemCard->sync(timeKeeper, *m_irqState);
+	m_timers->sync(timeKeeper, *m_irqState);
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_CDROM))
-		m_cdRom.sync(timeKeeper, m_irqState);
+		m_cdRom->sync(timeKeeper, *m_irqState);
 }
 
 CacheControl Interconnect::getCacheControl() const
 {
-	return m_cacheControl;
+	return *m_cacheControl;
 }
 
 template<typename T>
@@ -433,10 +473,10 @@ Instruction Interconnect::loadInstruction(uint32_t pc)
 
 	uint32_t offset = 0;
 	if (RAM.contains(targetPeripheralAddress, offset))
-		return Instruction(m_ram.load<T>(offset));
+		return Instruction(m_ram->load<T>(offset));
 
 	if (BIOS.contains(targetPeripheralAddress, offset))
-		return Instruction(m_bios.load<T>(offset));
+		return Instruction(m_bios->load<T>(offset));
 
 	LOG("Unhandled instruction load at address 0x" << std::hex << pc);
 	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
@@ -446,10 +486,10 @@ template Instruction Interconnect::loadInstruction<uint32_t>(uint32_t);
 
 InterruptState Interconnect::getIrqState() const
 {
-	return m_irqState;
+	return *m_irqState;
 }
 
 std::vector<Profile*> Interconnect::getPadProfiles()
 {
-	return m_padMemCard.getPadProfiles();
+	return m_padMemCard->getPadProfiles();
 }

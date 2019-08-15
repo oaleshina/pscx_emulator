@@ -98,6 +98,7 @@ XaSector::ResultXaSector XaSector::validateMode2Form1() const
 
 XaSector::ResultXaSector XaSector::validateMode2Form2() const
 {
+	//assert(0, "Unhandled Mode 2 Form 2 sector");
 	return ResultXaSector(this, XaSectorStatus::XA_SECTOR_STATUS_OK);
 }
 

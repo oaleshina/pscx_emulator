@@ -178,6 +178,7 @@
     <ClCompile Include="pscx_padmemcard.cpp" />
     <ClCompile Include="pscx_ram.cpp" />
     <ClCompile Include="pscx_renderer.cpp" />
+    <ClCompile Include="pscx_spu.cpp" />
     <ClCompile Include="pscx_timekeeper.cpp" />
     <ClCompile Include="pscx_timers.cpp" />
   </ItemGroup>
@@ -203,6 +204,7 @@
     <ClInclude Include="pscx_padmemcard.h" />
     <ClInclude Include="pscx_ram.h" />
     <ClInclude Include="pscx_renderer.h" />
+    <ClInclude Include="pscx_spu.h" />
     <ClInclude Include="pscx_timekeeper.h" />
     <ClInclude Include="pscx_timers.h" />
   </ItemGroup>

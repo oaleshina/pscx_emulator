@@ -677,6 +677,17 @@ void Gte::setData(uint32_t reg, uint32_t value)
 		m_accumulatorsSignedWord[3] = (int32_t)value;
 		break;
 	}
+	case 30:
+	{
+		m_leadingZerosCountSign = value;
+
+		// If "value" is negative, we count the leading ones,
+		// otherwise we count the leading zeroes.
+		uint16_t leadingZerosCountValue = (value >> 31) & 1 ? ~value : value;
+		m_leadingZerosCountResult = calculateLeadingZeros(leadingZerosCountValue);
+
+		break;
+	}
 	case 31:
 	{
 		LOG("Write to read-only GTE data register 31");
@@ -702,6 +713,9 @@ void Gte::command(uint32_t command)
 	{
 	case 0x06:
 		cmdNormalClip();
+		break;
+	case 0x12:
+		cmdMultiplyVectorByMatrixAndAddVector(config);
 		break;
 	case 0x13:
 		cmdNormalColorDepthSingleVector(config);
@@ -741,6 +755,11 @@ void Gte::cmdNormalClip()
 	m_accumulatorsSignedWord[0] = converti64Toi32Result(sum);
 }
 
+void Gte::cmdMultiplyVectorByMatrixAndAddVector(const CommandConfig& config)
+{
+	multiplyMatrixByVector(config, config.getMatrix(), config.getVectorMul(), config.getVectorAdd());
+}
+
 void Gte::cmdNormalColorDepthSingleVector(const CommandConfig& config)
 {
 	doNormalColorDepthTransformation(config, 0x0);
@@ -774,7 +793,7 @@ void Gte::cmdRotateTranslatePerspectiveTransform(const CommandConfig& commandCon
 	depthQueuing(projectionFactor);
 }
 
-void Gte::doNormalColorDepthTransformation(const CommandConfig& config, size_t vectorIndex)
+void Gte::doNormalColorDepthTransformation(const CommandConfig& config, uint8_t vectorIndex)
 {
 	multiplyMatrixByVector(config, Matrix::MATRIX_LIGHT, vectorIndex, ControlVector::CONTROL_VECTOR_ZERO);
 
@@ -808,7 +827,7 @@ void Gte::doNormalColorDepthTransformation(const CommandConfig& config, size_t v
 	convertAccumulatorsSignedWordsToRGBFifo();
 }
 
-void Gte::multiplyMatrixByVector(const CommandConfig& config, Matrix matrix, size_t vectorIndex, ControlVector controlVector)
+void Gte::multiplyMatrixByVector(const CommandConfig& config, Matrix matrix, uint8_t vectorIndex, ControlVector controlVector)
 {
 	assert(matrix != Matrix::MATRIX_INVALID, "GTE multiplication with invalid matrix");
 	assert(controlVector != ControlVector::CONTROL_VECTOR_FAR_COLOR, "GTE multiplication with far color vector");

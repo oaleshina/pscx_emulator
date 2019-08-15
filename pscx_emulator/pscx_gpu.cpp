@@ -309,7 +309,9 @@ uint32_t Gpu::getStatusRegister() const
 
 uint32_t Gpu::getReadRegister() const
 {
-	return 0x0;
+	LOG("GPUREAD");
+	// framebuffer read is not supported for now
+	return m_readWord;
 }
 
 void Gpu::gp0(uint32_t value)
@@ -368,9 +370,13 @@ void Gpu::gp0(uint32_t value)
 			commandParameters.gp0WordsRemaining = 8;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedOpaque;
 			break;
+		case 0x60:
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectOpaque;
+			break;
 		case 0x64:
 			commandParameters.gp0WordsRemaining = 4;
-			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureRawOpaque;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureBlendOpaque;
 			break;
 		case 0x65:
 			commandParameters.gp0WordsRemaining = 4;
@@ -474,6 +480,9 @@ void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, Timers& timers, InterruptS
 	case 0x08:
 		gp1DisplayMode(value, timeKeeper, irqState);
 		timers.videoTimingsChanged(timeKeeper, irqState, *this);
+		break;
+	case 0x10:
+		gp1GetInfo(value);
 		break;
 	default:
 		assert(0, "Unhandled GP1 command");
@@ -626,6 +635,48 @@ void Gpu::gp0QuadShadedOpaque()
 	m_renderer.pushQuad(positions, colors);
 }
 
+void Gpu::gp0RectOpaque()
+{
+	Position topLeft = Position::fromGP0(m_gp0Command[1]);
+	Position size = Position::fromGP0(m_gp0Command[2]);
+
+	Position positions[] = {
+		topLeft,
+		Position(topLeft.getX() + size.getX(), topLeft.getY()),
+		Position(topLeft.getX(), topLeft.getY() + size.getY()),
+		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	};
+
+	Color colors[] = {
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0])
+	};
+	m_renderer.pushQuad(positions, colors);
+}
+
+void Gpu::gp0RectTextureBlendOpaque()
+{
+	Position topLeft = Position::fromGP0(m_gp0Command[1]);
+	Position size = Position::fromGP0(m_gp0Command[3]);
+
+	Position positions[] = {
+		topLeft,
+		Position(topLeft.getX() + size.getX(), topLeft.getY()),
+		Position(topLeft.getX(), topLeft.getY() + size.getY()),
+		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	};
+
+	Color colors[] = {
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0]),
+		Color::fromGP0(m_gp0Command[0])
+	};
+	m_renderer.pushQuad(positions, colors);
+}
+
 void Gpu::gp0RectTextureRawOpaque()
 {
 	Position topLeft = Position::fromGP0(m_gp0Command[1]);
@@ -740,6 +791,7 @@ void Gpu::gp0DrawingOffset()
 	int16_t offsetX = ((int16_t)(x << 5)) >> 5;
 	int16_t offsetY = ((int16_t)(y << 5)) >> 5;
 
+	m_drawingOffset = std::make_pair(x, y);
 	m_renderer.setDrawOffset(offsetX, offsetY);
 	//m_renderer.display();
 }
@@ -894,4 +946,30 @@ void Gpu::gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper, Interr
 	m_displayLineEnd = (value >> 10) & 0x3ff;
 
 	sync(timeKeeper, irqState);
+}
+
+void Gpu::gp1GetInfo(uint32_t value)
+{
+	switch (value & 0xf)
+	{
+	case 3:
+		m_readWord = (uint32_t)m_drawingAreaLeft | ((uint32_t)m_drawingAreaTop << 10);
+		break;
+	case 4:
+		m_readWord = (uint32_t)m_drawingAreaRight | ((uint32_t)m_drawingAreaBottom << 10);
+		break;
+	case 5:
+	{
+		uint32_t x = (uint32_t)m_drawingOffset.first & 0x7ff;
+		uint32_t y = (uint32_t)m_drawingOffset.second & 0x7ff;
+		m_readWord = x | (y << 10);
+		break;
+	}
+	case 7:
+		// GPU version. Should always be 2 ?
+		m_readWord = 2;
+		break;
+	default:
+		assert(0, "Unsupported GP1 info command");
+	}
 }

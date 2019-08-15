@@ -1,19 +1,45 @@
 #pragma once
 
 #include "pscx_memory.h"
+#include <iostream>
 
 #include <vector>
 
 using namespace pscx_memory;
 
+// Main PlayStation RAM: 2 Megabytes
+const uint32_t MAIN_RAM_SIZE = 2 * 1024 * 1024;
+
+// ScratchPad (data cache used as fast RAM): 1 Kilobyte
+const uint32_t SCRATCH_PAD_SIZE = 1024;
+
+struct ScratchPad
+{
+	ScratchPad()
+	{
+		// Instantiate scratchpad with garbage values
+		memset(m_data, 0xdb, SCRATCH_PAD_SIZE);
+	}
+
+	template<typename T>
+	T load(uint32_t offset) const;
+
+	template<typename T>
+	void store(uint32_t offset, T value);
+
+private:
+	uint8_t m_data[SCRATCH_PAD_SIZE];
+};
+
 struct Ram
 {
 	Ram()
 	{
-		m_data.resize(2 * 1024 * 1024); // 2 MB
+		std::cout << "RAM initialization\n";
+		m_data.resize(MAIN_RAM_SIZE);
 
 		// Default RAM contants are garbage
-		memset(m_data.data(), 0xca, m_data.size());
+		memset(m_data.data(), 0xca, MAIN_RAM_SIZE);
 	}
 
 	// RAM buffer

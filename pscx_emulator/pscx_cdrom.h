@@ -83,6 +83,23 @@ private:
 	uint8_t m_readIdx;
 };
 
+// CD-DA Audio playback mixer. The CDROM's audio stereo output can be
+// mixed arbitrarily, before reaching the SPU stereo input.
+struct Mixer
+{
+	Mixer() :
+		m_cdLeftToSpuLeft(0x0),
+		m_cdLeftToSpuRight(0x0),
+		m_cdRightToSpuLeft(0x0),
+		m_cdRightToSpuRight(0x0)
+	{}
+//private:
+	uint8_t m_cdLeftToSpuLeft;
+	uint8_t m_cdLeftToSpuRight;
+	uint8_t m_cdRightToSpuLeft;
+	uint8_t m_cdRightToSpuRight;
+};
+
 // CDROM Controller.
 struct CdRom
 {
@@ -95,6 +112,7 @@ struct CdRom
 		m_onAcknowledge(&CdRom::ackIdle),
 		m_disc(disc),
 		m_seekTarget(MinuteSecondFrame::createZeroTimestamp()),
+		m_seekTargetPending(false),
 		m_readPosition(MinuteSecondFrame::createZeroTimestamp()),
 		m_doubleSpeed(false),
 		m_rxActive(false),
@@ -117,6 +135,8 @@ struct CdRom
 
 	// The DMA can read the RX buffer one word at a time.
 	uint32_t dmaReadWord();
+
+	void doSeek();
 
 	// Retrieve the current disc or panic if there's none. Used in
 	// functions that should not be reached if a disc is not present.
@@ -244,6 +264,9 @@ private:
 	// Target of the next seek command.
 	MinuteSecondFrame m_seekTarget;
 
+	// True if m_seekTarget has been set but no seek took place.
+	bool m_seekTargetPending;
+
 	// Current read position.
 	MinuteSecondFrame m_readPosition;
 
@@ -261,12 +284,15 @@ private:
 	// Index of the next byte to be read in the RX sector.
 	uint16_t m_rxIndex;
 
-	// Offset of m_rxIndex in the sector buffer
+	// Offset of m_rxIndex in the sector buffer.
 	uint16_t m_rxOffset;
-	// Index of the last byte to be read in the RX sector
+	// Index of the last byte to be read in the RX sector.
 	uint16_t m_rxLen;
 
 	// If true we read the whole sector except for the sync bytes
 	// (0x924 bytes), otherwise it only reads 0x800 bytes.
 	bool m_readWholeSector;
+
+	// CDROM audio mixer connected to the SPU.
+	Mixer m_mixer;
 };

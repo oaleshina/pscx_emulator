@@ -186,7 +186,7 @@ void Timer::predictNextSync(TimeKeeper& timeKeeper)
 
 bool Timer::needsGpu()
 {
-	assert(!m_useSync, "Sync mode not supported!");
+	if (m_useSync) LOG("Sync mode not supported!");
 	return ::needsGpu(m_clockSource.clock(m_instance));
 }
 
@@ -233,7 +233,7 @@ void Timer::setMode(uint16_t value)
 	assert(!m_wrapIrq, "Wrap IRQ not supported");
 	assert(!((m_wrapIrq || m_targetIrq) && !m_repeatIrq), "One shot timer interrupts are not supported");
 	assert(!m_negateIrq, "Only pulse interrupts are supported");
-	assert(!m_useSync, "Sync mode is not supported");
+	if (m_useSync) LOG("Sync mode is not supported");
 }
 
 uint16_t Timer::getTarget() const

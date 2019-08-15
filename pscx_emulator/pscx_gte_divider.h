@@ -7,3 +7,4 @@
 // The algorithm is based on Newton-Raphson.
 uint32_t divide(uint16_t numerator, uint16_t divisor);
 uint32_t calculateReciprocal(uint16_t divisor);
+uint32_t calculateLeadingZeros(uint16_t value);

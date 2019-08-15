@@ -31,35 +31,38 @@ enum ControlVector
 ControlVector fromControlVectorCommand(uint32_t command);
 // index ???
 
-// Decoded command fields in the GTE command instructions.
+// Decoded command fields in the GTE command instructions. Meaning varies
+// depending on the command used.
 struct CommandConfig
 {
-	CommandConfig(uint8_t shift, bool clampNegative, Matrix matrix, ControlVector controlVector) :
+	CommandConfig(uint8_t shift, bool clampNegative, Matrix matrix, uint8_t vectorMul, ControlVector vectorAdd) :
 		m_shift(shift),
 		m_clampNegative(clampNegative),
 		m_matrix(matrix),
-		m_controlVector(controlVector)
+		m_vectorMul(vectorMul),
+		m_vectorAdd(vectorAdd)
 	{}
 
 	static CommandConfig fromCommand(uint32_t command)
 	{
 		uint8_t shift = (command & (1 << 19)) ? 0xc : 0x0;
 		bool clampNegative = command & (1 << 10);
-		return CommandConfig(shift, clampNegative, fromMatrixCommand(command), fromControlVectorCommand(command));
+		uint8_t vectorIndex = (command >> 15) & 3;
+		return CommandConfig(shift, clampNegative, fromMatrixCommand(command), vectorIndex, fromControlVectorCommand(command));
 	}
 
 	uint8_t getShift() const { return m_shift; }
 	bool isClampNegative() const { return m_clampNegative; }
+	Matrix getMatrix() const { return m_matrix; }
+	uint8_t getVectorMul() const { return m_vectorMul; }
+	ControlVector getVectorAdd() const { return m_vectorAdd; }
 
 private:
-	// Right shift value applied to intermediate results.
-	// Either 0 or 12.
 	uint8_t m_shift;
-	// If true, negative results are clamped to 0.
 	bool m_clampNegative;
-	// Which matrix to use for the MVMVA command.
 	Matrix m_matrix;
-	ControlVector m_controlVector;
+	uint8_t m_vectorMul;
+	ControlVector m_vectorAdd;
 };
 
 // Geometry transform engine.
@@ -110,6 +113,8 @@ struct Gte
 
 	// Normal clipping.
 	void cmdNormalClip();
+	// Multiply vector by matrix and add vector.
+	void cmdMultiplyVectorByMatrixAndAddVector(const CommandConfig& config);
 	// Normal color depth cue single vector.
 	void cmdNormalColorDepthSingleVector(const CommandConfig& config);
 	// Average three z values.
@@ -118,8 +123,8 @@ struct Gte
 	// Operates on v0, v1 and v2.
 	void cmdRotateTranslatePerspectiveTransform(const CommandConfig& commandConfig);
 
-	void doNormalColorDepthTransformation(const CommandConfig& config, size_t vectorIndex);
-	void multiplyMatrixByVector(const CommandConfig& config, Matrix matrix, size_t vectorIndex, ControlVector controlVector);
+	void doNormalColorDepthTransformation(const CommandConfig& config, uint8_t vectorIndex);
+	void multiplyMatrixByVector(const CommandConfig& config, Matrix matrix, uint8_t vectorIndex, ControlVector controlVector);
 
 	// Convert the contents of m_accumulatorsSignedWord[1...3] to put them in m_accumulatorsSignedHalfwords[1...3].
 	void convertAccumulatorsSignedWordsToHalfwords(const CommandConfig& commandConfig);

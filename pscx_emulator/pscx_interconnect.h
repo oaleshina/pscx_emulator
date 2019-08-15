@@ -1,12 +1,14 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 
 #include "pscx_common.h"
 #include "pscx_bios.h"
 #include "pscx_ram.h"
 #include "pscx_dma.h"
 #include "pscx_gpu.h"
+#include "pscx_spu.h"
 #include "pscx_memory.h"
 #include "pscx_instruction.h"
 #include "pscx_timekeeper.h"
@@ -52,13 +54,16 @@ struct Interconnect
 
 private:
 	
-	InterruptState m_irqState;
-	Bios m_bios; // Basic Input/Output memory
-	Ram m_ram; // Main RAM
-	Dma m_dma; // DMA registers
-	Gpu m_gpu; // Graphics Processor Unit
-	Timers m_timers; // System timers
-	CacheControl m_cacheControl; // Cache Control register
-	CdRom m_cdRom; // CDROM controller
-	PadMemCard m_padMemCard; // Gamepad and memory card controller
+	InterruptState* m_irqState;
+	Bios* m_bios; // Basic Input/Output memory
+	Ram* m_ram; // Main RAM
+	ScratchPad* m_scratchPad; // ScratchPad
+	Dma* m_dma; // DMA registers
+	Gpu* m_gpu; // Graphics Processor Unit
+	Spu* m_spu; // Sound Processing Unit
+	Timers* m_timers; // System timers
+	CacheControl* m_cacheControl; // Cache Control register
+	CdRom* m_cdRom; // CDROM controller
+	PadMemCard* m_padMemCard; // Gamepad and memory card controller
+	uint32_t m_ramSize; // Contents of the RAM_SIZE register ( a configuration register for the memory controller )
 };

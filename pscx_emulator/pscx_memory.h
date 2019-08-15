@@ -62,8 +62,12 @@ namespace pscx_memory
 	};
 
 	// Address map declarations
-	const Range RAM          = Range(0x00000000, 2 * 1024 * 1024);
+	// Main RAM: 2MB mirrored four times over the first 8MB
+	const Range RAM          = Range(0x00000000, 8 * 1024 * 1024);
 	const Range BIOS         = Range(0x1fc00000, 512 * 1024);
+
+	// ScratchPad: data cache used as fast 1Kb RAM
+	const Range SCRATCH_PAD  = Range(0x1f800000, 1024);
 
 	// Unknown registers. The name comes from mednafen
 	const Range MEM_CONTROL  = Range(0x1f801000, 36);
@@ -74,6 +78,9 @@ namespace pscx_memory
 	
 	// Cache control register. Full address since it's in KSEG2
 	const Range CACHE_CONTROL = Range(0xfffe0130, 4);
+
+	// Motion Decoder
+	const Range MDEC          = Range(0x1f801820, 8);
 
 	// SPU registers
 	const Range SPU           = Range(0x1f801c00, 640);
