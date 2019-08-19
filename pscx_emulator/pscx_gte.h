@@ -111,8 +111,12 @@ struct Gte
 	// Execute GTE command.
 	void command(uint32_t command);
 
+	// Rotate, translate and perspective transform single. Operates on v0.
+	void cmdRotateTranslatePerspectiveTransformSingle(const CommandConfig& commandConfig);
 	// Normal clipping.
 	void cmdNormalClip();
+	// Depth queue single.
+	void cmdDepthQueueSingle(const CommandConfig& config);
 	// Multiply vector by matrix and add vector.
 	void cmdMultiplyVectorByMatrixAndAddVector(const CommandConfig& config);
 	// Normal color depth cue single vector.
@@ -122,6 +126,11 @@ struct Gte
 	// Rotate, translate and perspective transform triple.
 	// Operates on v0, v1 and v2.
 	void cmdRotateTranslatePerspectiveTransform(const CommandConfig& commandConfig);
+	// Normal color color triple.
+	// Operates on v0, v1 and v2.
+	void cmdNormalColorColorTriple(const CommandConfig& commandConfig);
+
+	void doNormalColorColor(const CommandConfig& commandConfig, uint8_t vectorIndex);
 
 	void doNormalColorDepthTransformation(const CommandConfig& config, uint8_t vectorIndex);
 	void multiplyMatrixByVector(const CommandConfig& config, Matrix matrix, uint8_t vectorIndex, ControlVector controlVector);

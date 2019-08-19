@@ -375,7 +375,7 @@ void Interconnect::doDmaBlock(Port port)
 			}
 			else
 			{
-				std::cout << port << std::endl;
+				//std::cout << port << std::endl;
 				assert(0, "Unhandled DMA destination port");
 			}
 			break;

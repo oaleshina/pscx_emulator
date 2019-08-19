@@ -77,6 +77,10 @@ T PadMemCard::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t of
 	{
 		return (uint32_t)getControl();
 	}
+	case 14:
+	{
+		return (uint32_t)m_baudRateDivider;
+	}
 	default:
 		assert(0, "Unhandled gamepad read");
 	}

@@ -402,6 +402,11 @@ void Gte::setControl(uint32_t reg, uint32_t value)
 
 uint32_t Gte::getData(uint32_t reg) const
 {
+	auto rgbxToU32 = [](const uint8_t* rgbx) -> uint32_t
+	{
+		return (uint32_t)rgbx[0] | ((uint32_t)rgbx[1] << 8) | ((uint32_t)rgbx[2] << 16) | ((uint32_t)rgbx[3] << 24);
+	};
+
 	switch (reg)
 	{
 	case 0:
@@ -436,7 +441,7 @@ uint32_t Gte::getData(uint32_t reg) const
 	}
 	case 6:
 	{
-		return (uint32_t)m_rgbColor[0] | ((uint32_t)m_rgbColor[1] << 8) | ((uint32_t)m_rgbColor[2] << 16) | ((uint32_t)m_rgbColor[3] << 24);
+		return rgbxToU32(m_rgbColor);
 	}
 	case 7:
 	{
@@ -494,9 +499,17 @@ uint32_t Gte::getData(uint32_t reg) const
 	{
 		return m_zFifo[3];
 	}
+	case 20:
+	{
+		return rgbxToU32(m_rgbFifo[0]);
+	}
+	case 21:
+	{
+		return rgbxToU32(m_rgbFifo[1]);
+	}
 	case 22:
 	{
-		return (uint32_t)m_rgbFifo[2][0] | ((uint32_t)m_rgbFifo[2][1] << 8) | ((uint32_t)m_rgbFifo[2][2] << 16) | ((uint32_t)m_rgbFifo[2][3] << 24);
+		return rgbxToU32(m_rgbFifo[2]);
 	}
 	case 24:
 	{
@@ -711,8 +724,14 @@ void Gte::command(uint32_t command)
 
 	switch (opcode)
 	{
+	case 0x01:
+		cmdRotateTranslatePerspectiveTransformSingle(config);
+		break;
 	case 0x06:
 		cmdNormalClip();
+		break;
+	case 0x10:
+		cmdDepthQueueSingle(config);
 		break;
 	case 0x12:
 		cmdMultiplyVectorByMatrixAndAddVector(config);
@@ -726,6 +745,9 @@ void Gte::command(uint32_t command)
 	case 0x30:
 		cmdRotateTranslatePerspectiveTransform(config);
 		break;
+	case 0x3f:
+		cmdNormalColorColorTriple(config);
+		break;
 	default:
 		assert(0, "Unhandled GTE opcode");
 	}
@@ -733,6 +755,12 @@ void Gte::command(uint32_t command)
 	// Update the flags MSB: OR together bits [30:23] + [18:13].
 	bool msb = m_overflowFlags & 0x7f87e000;
 	m_overflowFlags |= (((uint32_t)msb) << 31);
+}
+
+void Gte::cmdRotateTranslatePerspectiveTransformSingle(const CommandConfig& commandConfig)
+{
+	// Transform vector 0.
+	depthQueuing(doRotateTranslatePerspectiveTransform(commandConfig, 0x0));
 }
 
 void Gte::cmdNormalClip()
@@ -753,6 +781,25 @@ void Gte::cmdNormalClip()
 	// Compute the sum in 64 bits to detect overflows.
 	int64_t sum = (int64_t)a + (int64_t)b + (int64_t)c;
 	m_accumulatorsSignedWord[0] = converti64Toi32Result(sum);
+}
+
+void Gte::cmdDepthQueueSingle(const CommandConfig& config)
+{
+	for (size_t i = 0; i < 3; ++i)
+	{
+		int64_t farColor = (int64_t)m_controlVectors[ControlVector::CONTROL_VECTOR_FAR_COLOR][i] << 12;
+		int64_t color = (int64_t)m_rgbColor[i] << 4;
+		
+		int64_t product = farColor - color;
+
+		int32_t temporary = converti64Toi32Result(product) >> config.getShift();
+		int64_t saturateResult = truncatei32Toi16Saturate(CommandConfig::fromCommand(0x0), (uint8_t)i, temporary);
+		int32_t result = converti64Toi32Result(color + (int64_t)m_accumulatorsSignedHalfwords[0] * saturateResult);
+		m_accumulatorsSignedWord[i + 1] = result >> config.getShift();
+	}
+
+	convertAccumulatorsSignedWordsToHalfwords(config);
+	convertAccumulatorsSignedWordsToRGBFifo();
 }
 
 void Gte::cmdMultiplyVectorByMatrixAndAddVector(const CommandConfig& config)
@@ -791,6 +838,35 @@ void Gte::cmdRotateTranslatePerspectiveTransform(const CommandConfig& commandCon
 	// We do the depth queuing on the last vector.
 	uint32_t projectionFactor = doRotateTranslatePerspectiveTransform(commandConfig, 0x2);
 	depthQueuing(projectionFactor);
+}
+
+void Gte::cmdNormalColorColorTriple(const CommandConfig& commandConfig)
+{
+	// Transform three vectors at once.
+	doNormalColorColor(commandConfig, 0x0);
+	doNormalColorColor(commandConfig, 0x1);
+	doNormalColorColor(commandConfig, 0x2);
+}
+
+void Gte::doNormalColorColor(const CommandConfig& commandConfig, uint8_t vectorIndex)
+{
+	multiplyMatrixByVector(commandConfig, Matrix::MATRIX_LIGHT, vectorIndex, ControlVector::CONTROL_VECTOR_ZERO);
+
+	// Use custom 4th vector to store intermediate values.
+	m_vectors[3][0] = m_accumulatorsSignedHalfwords[1];
+	m_vectors[3][1] = m_accumulatorsSignedHalfwords[2];
+	m_vectors[3][2] = m_accumulatorsSignedHalfwords[3];
+
+	multiplyMatrixByVector(commandConfig, Matrix::MATRIX_COLOR, 0x3, ControlVector::CONTROL_VECTOR_BACKGROUND_COLOR);
+
+	for (size_t i = 0; i < 3; ++i)
+	{
+		int32_t color = (int32_t)m_rgbColor[i] << 4;
+		m_accumulatorsSignedWord[i + 1] = (color * (int32_t)m_accumulatorsSignedHalfwords[i + 1]) >> commandConfig.getShift();
+	}
+
+	convertAccumulatorsSignedWordsToHalfwords(commandConfig);
+	convertAccumulatorsSignedWordsToRGBFifo();
 }
 
 void Gte::doNormalColorDepthTransformation(const CommandConfig& config, uint8_t vectorIndex)

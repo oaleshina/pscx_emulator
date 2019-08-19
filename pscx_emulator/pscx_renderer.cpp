@@ -82,7 +82,7 @@ Renderer::Renderer()
 	{
 		GLuint index = glGetAttribLocation(m_program, "vertex_color");
 		glEnableVertexAttribArray(index);
-		glVertexAttribIPointer(index, 3, GL_UNSIGNED_BYTE, 0, nullptr);
+		glVertexAttribPointer(index, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, nullptr);
 	}
 
 	// Retrieve and initialize the draw offset
