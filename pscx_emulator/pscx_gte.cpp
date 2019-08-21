@@ -552,6 +552,14 @@ void Gte::setData(uint32_t reg, uint32_t value)
 {
 	LOG("Set GTE data reg = 0x" << std::hex << reg << " value = 0x" << value);
 
+	auto valToRgbx = [value](uint8_t* rgbx)
+	{
+		rgbx[0] = (uint8_t)value;
+		rgbx[1] = (uint8_t)(value >> 8);
+		rgbx[2] = (uint8_t)(value >> 16);
+		rgbx[3] = (uint8_t)(value >> 24);
+	};
+
 	switch (reg)
 	{
 	case 0:
@@ -589,10 +597,7 @@ void Gte::setData(uint32_t reg, uint32_t value)
 	}
 	case 6:
 	{
-		m_rgbColor[0] = (uint8_t)value;
-		m_rgbColor[1] = (uint8_t)(value >> 8);
-		m_rgbColor[2] = (uint8_t)(value >> 16);
-		m_rgbColor[3] = (uint8_t)(value >> 24);
+		valToRgbx(m_rgbColor);
 		break;
 	}
 	case 7:
@@ -662,12 +667,19 @@ void Gte::setData(uint32_t reg, uint32_t value)
 		m_zFifo[3] = (uint16_t)value;
 		break;
 	}
+	case 20:
+	{
+		valToRgbx(m_rgbFifo[0]);
+		break;
+	}
+	case 21:
+	{
+		valToRgbx(m_rgbFifo[1]);
+		break;
+	}
 	case 22:
 	{
-		m_rgbFifo[2][0] = (uint8_t)value;
-		m_rgbFifo[2][1] = (uint8_t)(value >> 8);
-		m_rgbFifo[2][2] = (uint8_t)(value >> 16);
-		m_rgbFifo[2][3] = (uint8_t)(value >> 24);
+		valToRgbx(m_rgbFifo[2]);
 		break;
 	}
 	case 24:
