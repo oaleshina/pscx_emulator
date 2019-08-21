@@ -407,6 +407,11 @@ uint32_t Gte::getData(uint32_t reg) const
 		return (uint32_t)rgbx[0] | ((uint32_t)rgbx[1] << 8) | ((uint32_t)rgbx[2] << 16) | ((uint32_t)rgbx[3] << 24);
 	};
 
+	auto xyToU32 = [](const std::pair<uint16_t, uint16_t> xy) -> uint32_t
+	{
+		return (uint32_t)xy.first | ((uint32_t)xy.second << 16);
+	};
+
 	switch (reg)
 	{
 	case 0:
@@ -465,23 +470,19 @@ uint32_t Gte::getData(uint32_t reg) const
 	}
 	case 12:
 	{
-		auto xy = m_xyFifo[0];
-		return (uint32_t)xy.first | ((uint32_t)xy.second << 16);
+		return xyToU32(m_xyFifo[0]);
 	}
 	case 13:
 	{
-		auto xy = m_xyFifo[1];
-		return (uint32_t)xy.first | ((uint32_t)xy.second << 16);
+		return xyToU32(m_xyFifo[1]); 
 	}
 	case 14:
 	{
-		auto xy = m_xyFifo[2];
-		return (uint32_t)xy.first | ((uint32_t)xy.second << 16);
+		return xyToU32(m_xyFifo[2]);
 	}
 	case 15:
 	{
-		auto xy = m_xyFifo[3];
-		return (uint32_t)xy.first | ((uint32_t)xy.second << 16);
+		return xyToU32(m_xyFifo[3]);
 	}
 	case 16:
 	{
@@ -560,6 +561,12 @@ void Gte::setData(uint32_t reg, uint32_t value)
 		rgbx[3] = (uint8_t)(value >> 24);
 	};
 
+	auto valToXY = [value](std::pair<int16_t, int16_t>& xy)
+	{
+		xy.first = (int16_t)value;
+		xy.second = (int16_t)(value >> 16);
+	};
+
 	switch (reg)
 	{
 	case 0:
@@ -627,24 +634,26 @@ void Gte::setData(uint32_t reg, uint32_t value)
 	}
 	case 12:
 	{
-		int16_t value0 = (int16_t)value;
-		int16_t value1 = (int16_t)(value >> 16);
-		m_xyFifo[0] = std::make_pair(value0, value1);
+		valToXY(m_xyFifo[0]);
 		break;
 	}
 	case 13:
 	{
-		int16_t value0 = (int16_t)value;
-		int16_t value1 = (int16_t)(value >> 16);
-		m_xyFifo[1] = std::make_pair(value0, value1);
+		valToXY(m_xyFifo[1]);
 		break;
 	}
 	case 14:
 	{
-		int16_t value0 = (int16_t)value;
-		int16_t value1 = (int16_t)(value >> 16);
-		m_xyFifo[2] = std::make_pair(value0, value1);
-		m_xyFifo[3] = std::make_pair(value0, value1);
+		valToXY(m_xyFifo[2]);
+		valToXY(m_xyFifo[3]);
+		break;
+	}
+	case 15:
+	{
+		valToXY(m_xyFifo[3]);
+		m_xyFifo[0] = m_xyFifo[1];
+		m_xyFifo[1] = m_xyFifo[2];
+		m_xyFifo[2] = m_xyFifo[3];
 		break;
 	}
 	case 16:
