@@ -501,201 +501,144 @@ void Gpu::gp0ClearCache()
 
 void Gpu::gp0FillRect()
 {
-	Position topLeft = Position::fromGP0(m_gp0Command[1]);
-	Position size = Position::fromGP0(m_gp0Command[2]);
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[2]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
-	Position positions[] = {
-		topLeft,
-		Position(topLeft.getX() + size.getX(), topLeft.getY()),
-		Position(topLeft.getX(), topLeft.getY() + size.getY()),
-		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
 	};
 
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0])
-	};
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0TriangleMonoOpaque()
 {
-	Position positions[] = {
-	Position::fromGP0(m_gp0Command[1]),
-	Position::fromGP0(m_gp0Command[2]),
-	Position::fromGP0(m_gp0Command[3])
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[2]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color)
 	};
 
-	// Only one color repeated 3 times
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0])
-	};
-
-	m_renderer.pushTriangle(positions, colors);
+	m_renderer.pushTriangle(vertices);
 }
 
 void Gpu::gp0QuadMonoOpaque()
 {
-	Position positions[] = {
-		Position::fromGP0(m_gp0Command[1]),
-		Position::fromGP0(m_gp0Command[2]),
-		Position::fromGP0(m_gp0Command[3]),
-		Position::fromGP0(m_gp0Command[4])
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[2]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color),
+		Vertex(Position::fromPacked(m_gp0Command[4]), color)
 	};
 
-	// Only one color repeated 4 times
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0])
-	};
-
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0QuadTextureBlendOpaque()
 {
-	Position positions[] = {
-		Position::fromGP0(m_gp0Command[1]),
-		Position::fromGP0(m_gp0Command[3]),
-		Position::fromGP0(m_gp0Command[5]),
-		Position::fromGP0(m_gp0Command[7])
+	Color color = Color(0x80, 0x0, 0x0);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color)
 	};
 
-	// We don't support textures for now, use the solid red color instead
-	Color colors[] = {
-		Color(0x80, 0x0, 0x0),
-		Color(0x80, 0x0, 0x0),
-		Color(0x80, 0x0, 0x0),
-		Color(0x80, 0x0, 0x0)
-	};
-
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0QuadTextureRawOpaque()
 {
-	Position positions[] = {
-		Position::fromGP0(m_gp0Command[1]),
-		Position::fromGP0(m_gp0Command[3]),
-		Position::fromGP0(m_gp0Command[5]),
-		Position::fromGP0(m_gp0Command[7])
+	Color color = Color(0x80, 0x0, 0x0);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color)
 	};
 
-	// We don't support textures for now, use the solid red color instead
-	Color colors[] = {
-		Color(0x80, 0x0, 0x0),
-		Color(0x80, 0x0, 0x0),
-		Color(0x80, 0x0, 0x0),
-		Color(0x80, 0x0, 0x0)
-	};
-
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0TriangleShadedOpaque()
 {
-	Position positions[] = {
-		Position::fromGP0(m_gp0Command[1]),
-		Position::fromGP0(m_gp0Command[3]),
-		Position::fromGP0(m_gp0Command[5])
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[3]), Color::fromPacked(m_gp0Command[2])),
+		Vertex(Position::fromPacked(m_gp0Command[5]), Color::fromPacked(m_gp0Command[4]))
 	};
 
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[2]),
-		Color::fromGP0(m_gp0Command[4])
-	};
-
-	m_renderer.pushTriangle(positions, colors);
+	m_renderer.pushTriangle(vertices);
 }
 
 void Gpu::gp0QuadShadedOpaque()
 {
-	Position positions[] = {
-	Position::fromGP0(m_gp0Command[1]),
-	Position::fromGP0(m_gp0Command[3]),
-	Position::fromGP0(m_gp0Command[5]),
-	Position::fromGP0(m_gp0Command[7])
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[3]), Color::fromPacked(m_gp0Command[2])),
+		Vertex(Position::fromPacked(m_gp0Command[5]), Color::fromPacked(m_gp0Command[4])),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]))
 	};
 
-	// Only one color repeated 4 times
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[2]),
-		Color::fromGP0(m_gp0Command[4]),
-		Color::fromGP0(m_gp0Command[6])
-	};
-
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0RectOpaque()
 {
-	Position topLeft = Position::fromGP0(m_gp0Command[1]);
-	Position size = Position::fromGP0(m_gp0Command[2]);
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[2]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
-	Position positions[] = {
-		topLeft,
-		Position(topLeft.getX() + size.getX(), topLeft.getY()),
-		Position(topLeft.getX(), topLeft.getY() + size.getY()),
-		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
 	};
 
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0])
-	};
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0RectTextureBlendOpaque()
 {
-	Position topLeft = Position::fromGP0(m_gp0Command[1]);
-	Position size = Position::fromGP0(m_gp0Command[3]);
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[3]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
-	Position positions[] = {
-		topLeft,
-		Position(topLeft.getX() + size.getX(), topLeft.getY()),
-		Position(topLeft.getX(), topLeft.getY() + size.getY()),
-		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
 	};
 
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0])
-	};
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0RectTextureRawOpaque()
 {
-	Position topLeft = Position::fromGP0(m_gp0Command[1]);
-	Position size = Position::fromGP0(m_gp0Command[3]);
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[3]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
-	Position positions[] = {
-		topLeft,
-		Position(topLeft.getX() + size.getX(), topLeft.getY()),
-		Position(topLeft.getX(), topLeft.getY() + size.getY()),
-		Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY())
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
 	};
 
-	Color colors[] = {
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0]),
-		Color::fromGP0(m_gp0Command[0])
-	};
-	m_renderer.pushQuad(positions, colors);
+	m_renderer.pushQuad(vertices);
 }
 
 void Gpu::gp0ImageLoad()
@@ -771,6 +714,8 @@ void Gpu::gp0DrawingAreaTopLeft()
 	uint32_t value = m_gp0Command[0];
 	m_drawingAreaTop = (value >> 10) & 0x3ff;
 	m_drawingAreaLeft = value & 0x3ff;
+
+	//updateDrawingArea();
 }
 
 void Gpu::gp0DrawingAreaBottomRight()
@@ -778,6 +723,16 @@ void Gpu::gp0DrawingAreaBottomRight()
 	uint32_t value = m_gp0Command[0];
 	m_drawingAreaBottom = (value >> 10) & 0x3ff;
 	m_drawingAreaRight = value & 0x3ff;
+
+	//updateDrawingArea();
+}
+
+void Gpu::updateDrawingArea()
+{
+	m_renderer.setDrawingArea(m_drawingAreaLeft,
+							  m_drawingAreaTop,
+							  m_drawingAreaRight,
+							  m_drawingAreaBottom);
 }
 
 void Gpu::gp0DrawingOffset()

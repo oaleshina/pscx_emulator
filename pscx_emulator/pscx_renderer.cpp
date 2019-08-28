@@ -1,4 +1,5 @@
 #include "pscx_renderer.h"
+#include "pscx_common.h"
 
 #include <string>
 #include <fstream>
@@ -31,9 +32,12 @@ Renderer::Renderer()
 
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
+	m_framebufferXResolution = 1024;
+	m_framebufferYResolution = 768;
+
 	SDL_DisplayMode current;
 
-	m_window = SDL_CreateWindow("PSX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 768, SDL_WINDOW_OPENGL);
+	m_window = SDL_CreateWindow("PSX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, m_framebufferXResolution, m_framebufferYResolution, SDL_WINDOW_OPENGL);
 
 	m_glContext = SDL_GL_CreateContext(m_window);
 
@@ -46,6 +50,9 @@ Renderer::Renderer()
 	// Clear the window
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(0x0, 0x0, (GLint)m_framebufferXResolution, (GLint)m_framebufferYResolution);
 
 	//SDL_GL_SwapWindow(m_window);
 
@@ -67,22 +74,20 @@ Renderer::Renderer()
 	glGenVertexArrays(1, &m_vertexArrayObject);
 	glBindVertexArray(m_vertexArrayObject);
 
-	m_positions.OnCreate();
+	m_vertices.OnCreate();
 
 	// Setup the "position" attribute
 	{
 		GLuint index = glGetAttribLocation(m_program, "vertex_position");
 		glEnableVertexAttribArray(index);
-		glVertexAttribIPointer(index, 2, GL_SHORT, 0, nullptr);
+		glVertexAttribIPointer(index, 2, GL_SHORT, 0x8, nullptr);
 	}
-
-	m_colors.OnCreate();
 
 	// Setup the "color" attribute
 	{
 		GLuint index = glGetAttribLocation(m_program, "vertex_color");
 		glEnableVertexAttribArray(index);
-		glVertexAttribPointer(index, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, nullptr);
+		glVertexAttribPointer(index, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0x8, (GLvoid*)(2 * sizeof(int16_t)));
 	}
 
 	// Retrieve and initialize the draw offset
@@ -166,7 +171,7 @@ void Renderer::drop()
 	glDeleteProgram(m_program);
 }
 
-void Renderer::pushTriangle(Position positions[], Color colors[])
+void Renderer::pushTriangle(Vertex vertices[])
 {
 	// Make sure we have enough room left to queue the vertex
 	if (m_numOfVertices + 3 > VERTEX_BUFFER_LEN)
@@ -174,37 +179,18 @@ void Renderer::pushTriangle(Position positions[], Color colors[])
 	
 	for (size_t i = 0; i < 3; ++i)
 	{
-		m_positions.set(m_numOfVertices, positions[i]);
-		m_colors.set(m_numOfVertices, colors[i]);
+		m_vertices.set(m_numOfVertices, vertices[i]);
 		m_numOfVertices += 1;
 	}
 }
 
-void Renderer::pushQuad(Position positions[], Color colors[])
+void Renderer::pushQuad(Vertex vertices[])
 {
-	// Make sure we have enough room left to queue the vertex.
-	// We need to push two triangles to draw a quad ( 6 vertices )
-	if (m_numOfVertices + 6 > VERTEX_BUFFER_LEN)
-	{
-		// The vertex attribute buffers are full, force an early draw
-		draw();
-	}
+	// Push first triangle
+	pushTriangle(vertices);
 
-	// Push the first triangle
-	for (size_t i = 0; i < 3; ++i)
-	{
-		m_positions.set(m_numOfVertices, positions[i]);
-		m_colors.set(m_numOfVertices, colors[i]);
-		m_numOfVertices += 1;
-	}
-
-	// Push the second triangle
-	for (size_t i = 1; i < 4; ++i)
-	{
-		m_positions.set(m_numOfVertices, positions[i]);
-		m_colors.set(m_numOfVertices, colors[i]);
-		m_numOfVertices += 1;
-	}
+	// Push second triangle
+	pushTriangle(vertices + 1);
 }
 
 void Renderer::setDrawOffset(int16_t x, int16_t y)
@@ -214,6 +200,41 @@ void Renderer::setDrawOffset(int16_t x, int16_t y)
 
 	// Update the uniform value
 	glUniform2i(m_program, x, y);
+}
+
+void Renderer::setDrawingArea(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom)
+{
+	// Render any pending primitives
+	draw();
+
+	// Scale PlayStation VRAM coordinates if our framebuffer is not
+	// at the native resolution
+	GLint leftCoordinate = ((GLint)left * (GLint)m_framebufferXResolution) / 1024;
+	GLint rightCoordinate = ((GLint)right * (GLint)m_framebufferXResolution) / 1024;
+
+	GLint topCoordinate = ((GLint)top * (GLint)m_framebufferYResolution) / 768;
+	GLint bottomCoordinate = ((GLint)bottom * (GLint)m_framebufferYResolution) / 768;
+
+	// Width and height are inclusive
+	GLint width = rightCoordinate - leftCoordinate + 1;
+	GLint height = bottomCoordinate - topCoordinate + 1;
+
+	// OpenGL has (0, 0) at the bottom left, the PSX at the top left
+	bottomCoordinate = (GLint)m_framebufferYResolution - bottomCoordinate - 1;
+
+	if (width < 0x0 || height < 0x0)
+	{
+		LOG("Unsupported drawing area " << width << "x" << height << " ["
+			<< leftCoordinate << "x" << topCoordinate << " -> "
+			<< rightCoordinate << "x" << bottomCoordinate << "]");
+
+		// Don't draw anything
+		glScissor(0x0, 0x0, 0x0, 0x0);
+	}
+	else
+	{
+		glScissor(leftCoordinate, bottomCoordinate, width, height);
+	}
 }
 
 void Renderer::draw()

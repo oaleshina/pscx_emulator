@@ -9,7 +9,7 @@ struct Position
 	Position(GLshort x, GLshort y) : m_x(x), m_y(y) {}
 
 	// Parse position from a GP0 parameter
-	static Position fromGP0(uint32_t value)
+	static Position fromPacked(uint32_t value)
 	{
 		int16_t x = value;
 		int16_t y = value >> 16;
@@ -30,7 +30,7 @@ struct Color
 	Color(GLubyte r, GLubyte g, GLubyte b) : m_r(r), m_g(g), m_b(b) {}
 
 	// Parse color from a GP0 parameter
-	static Color fromGP0(uint32_t value)
+	static Color fromPacked(uint32_t value)
 	{
 		uint8_t r = value;
 		uint8_t g = value >> 8;
@@ -41,6 +41,21 @@ struct Color
 
 private:
 	GLubyte m_r, m_g, m_b;
+};
+
+struct Vertex
+{
+	Vertex(Position position, Color color) :
+		m_position(position),
+		m_color(color)
+	{}
+
+	const Position& getPosition() const { return m_position; }
+	const Color& getColor() const { return m_color; }
+
+private:
+	Position m_position;
+	Color m_color;
 };
 
 // Maximum number of vertex that can be stored in an attribute buffers
@@ -112,13 +127,16 @@ struct Renderer
 	void drop();
 
 	// Add a triangle to the draw buffer
-	void pushTriangle(Position positions[], Color colors[]);
+	void pushTriangle(Vertex vertices[]);
 
 	// Add a quad to the draw buffer
-	void pushQuad(Position positions[], Color colors[]);
+	void pushQuad(Vertex vertices[]);
 
 	// Set the value of the uniform draw offset
 	void setDrawOffset(int16_t x, int16_t y);
+
+	// Set the drawing area. Coordinates are offsets in the PlayStation VRAM.
+	void setDrawingArea(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
 
 	// Draw the buffered commands and reset the buffers
 	void draw();
@@ -129,6 +147,11 @@ struct Renderer
 private:
 	SDL_GLContext m_glContext;
 	SDL_Window* m_window;
+
+	// Framebuffer horizontal resolution (native:1024)
+	uint16_t m_framebufferXResolution;
+	// Framebuffer vertical resolution (native: 512)
+	uint16_t m_framebufferYResolution;
 
 	// Vertex shader object
 	GLuint m_vertexShader;
@@ -142,11 +165,8 @@ private:
 	// OpenGL Vertex array object
 	GLuint m_vertexArrayObject;
 
-	// Buffer containing vertices positions
-	Buffer<Position> m_positions;
-
-	// Buffer containing vertices colors
-	Buffer<Color> m_colors;
+	// Buffer containing vertices
+	Buffer<Vertex> m_vertices;
 
 	// Current number of vertices in the buffers
 	uint32_t m_numOfVertices;

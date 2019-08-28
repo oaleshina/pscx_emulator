@@ -346,6 +346,9 @@ struct Gpu
 	// GP0(0xe4): Set Drawing Area bottom right
 	void gp0DrawingAreaBottomRight();
 
+	// Called when the drawing area changes to notify the renderer
+	void updateDrawingArea();
+
 	// GP0(0xe5): Set Drawing Offset
 	void gp0DrawingOffset();
 
