@@ -68,6 +68,9 @@ Renderer::Renderer()
 	// Link program
 	m_program = linkProgram(shaders);
 
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 	glUseProgram(m_program);
 
 	// Generate vertex attribute object
@@ -80,14 +83,21 @@ Renderer::Renderer()
 	{
 		GLuint index = glGetAttribLocation(m_program, "vertex_position");
 		glEnableVertexAttribArray(index);
-		glVertexAttribIPointer(index, 2, GL_SHORT, 0x8, nullptr);
+		glVertexAttribIPointer(index, 2, GL_SHORT, sizeof(Vertex),(GLvoid*)offsetof(Vertex, m_position));
 	}
 
 	// Setup the "color" attribute
 	{
 		GLuint index = glGetAttribLocation(m_program, "vertex_color");
 		glEnableVertexAttribArray(index);
-		glVertexAttribPointer(index, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0x8, (GLvoid*)(2 * sizeof(int16_t)));
+		glVertexAttribPointer(index, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, m_color));
+	}
+
+	// Setup "alpha" attribute
+	{
+		GLuint index = glGetAttribLocation(m_program, "alpha");
+		glEnableVertexAttribArray(index);
+		glVertexAttribPointer(index, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex, m_alpha));
 	}
 
 	// Retrieve and initialize the draw offset
@@ -255,6 +265,7 @@ void Renderer::draw()
 
 		// Reset the buffers
 		m_numOfVertices = 0x0;
+		//std::cout << "Here\n";
 	}
 }
 

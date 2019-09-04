@@ -45,17 +45,22 @@ private:
 
 struct Vertex
 {
-	Vertex(Position position, Color color) :
+	Vertex(Position position, Color color, float alpha = 1.0f) :
 		m_position(position),
-		m_color(color)
+		m_color(color),
+		m_alpha(alpha)
 	{}
 
 	const Position& getPosition() const { return m_position; }
 	const Color& getColor() const { return m_color; }
 
-private:
+//private:
+	// Position in PlayStation VRAM coordinates
 	Position m_position;
+	// RGB color, 8 bits per component
 	Color m_color;
+	// Vertex alpha value, used for blending
+	float m_alpha;
 };
 
 // Maximum number of vertex that can be stored in an attribute buffers

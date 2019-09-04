@@ -586,7 +586,7 @@ CommandState CdRom::cmdDemute()
 {
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 32'000;
-	m_helperRxPending.m_irqDelay = 32'000; //+ 5401;
+	m_helperRxPending.m_irqDelay = 32'000 + 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -605,7 +605,7 @@ CommandState CdRom::cmdSetMode()
 
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 22'000;
-	m_helperRxPending.m_irqDelay = 22'000; //+ 5391;
+	m_helperRxPending.m_irqDelay = 22'000 + 5391;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -708,7 +708,7 @@ CommandState CdRom::ackSeekl()
 	// to physically move the head.
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 1'000'000;
-	m_helperRxPending.m_irqDelay = 1'000'000; //+ 1859;
+	m_helperRxPending.m_irqDelay = 1'000'000;// +1859;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -749,7 +749,7 @@ CommandState CdRom::ackGetId()
 
 		// Fixme: irq delay.
 		m_helperRxPending.m_rxDelay = 7'336;
-		m_helperRxPending.m_irqDelay = 7'336; //+ 12'376;
+		m_helperRxPending.m_irqDelay = 7'336;// +12'376;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 		m_helperRxPending.m_response = response;
 		return CommandState::COMMAND_STATE_RX_PENDING;
@@ -798,7 +798,7 @@ CommandState CdRom::ackInit()
 
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 2'000'000;
-	m_helperRxPending.m_irqDelay = 2'000'000; //+ 1870;
+	m_helperRxPending.m_irqDelay = 2'000'000 + 1870;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;

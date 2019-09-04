@@ -17,6 +17,7 @@ Interconnect::Interconnect(Bios bios, HardwareType hardwareType, const Disc* dis
 	m_padMemCard(new PadMemCard),
 	m_ramSize(0x0)
 {
+	memset(m_memControl, 0x0, sizeof(m_memControl));
 }
 
 template<typename T>
@@ -40,7 +41,10 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 	}
 
 	if (MEM_CONTROL.contains(targetPeripheralAddress, offset))
-		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
+	{
+		assert((std::is_same<uint32_t, T>::value), "Unhandled MEM_CONTROL access");
+		return Instruction(m_memControl[offset >> 2]);
+	}
 
 	if (SPU.contains(targetPeripheralAddress, offset))
 		return Instruction(m_spu->load<T>(offset));
@@ -111,6 +115,8 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 	uint32_t offset = 0;
 	if (MEM_CONTROL.contains(targetPeripheralAddress, offset))
 	{
+		assert((std::is_same<uint32_t, T>::value), "Unhandled MEM_CONTROL access");
+
 		switch (offset)
 		{
 		case 0:
@@ -129,6 +135,8 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 			LOG("Unhandled write to MEM_CONTROL register");
 			return;
 		}
+
+		m_memControl[offset >> 2] = value;
 		return;
 	}
 
@@ -371,7 +379,12 @@ void Interconnect::doDmaBlock(Port port)
 			else if (port == Port::PORT_MDEC_IN)
 			{
 				// No implementation for now
-				std::cout << "MDEC port" << std::endl;
+				LOG("MDEC port");
+			}
+			else if (port == Port::PORT_SPU)
+			{
+				// Ignore transfers to the SPU for now
+				LOG("SPU port");
 			}
 			else
 			{

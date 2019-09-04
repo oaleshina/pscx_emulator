@@ -350,6 +350,10 @@ void Gpu::gp0(uint32_t value)
 			commandParameters.gp0WordsRemaining = 5;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoOpaque;
 			break;
+		case 0x2a:
+			commandParameters.gp0WordsRemaining = 5;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoSemiTransparent;
+			break;
 		case 0x2c:
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendOpaque;
@@ -358,17 +362,37 @@ void Gpu::gp0(uint32_t value)
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawOpaque;
 			break;
+		case 0x2e:
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendSemiTransparent;
+			break;
 		case 0x2f:
 			commandParameters.gp0WordsRemaining = 9;
-			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendOpaque;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawSemiTransparent;
 			break;
 		case 0x30:
 			commandParameters.gp0WordsRemaining = 6;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleShadedOpaque;
 			break;
+		case 0x34:
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleTextureBlendOpaque;
+			break;
+		case 0x36:
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleTextureBlendSemiTransparent;
+			break;
 		case 0x38:
 			commandParameters.gp0WordsRemaining = 8;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedOpaque;
+			break;
+		case 0x3c:
+			commandParameters.gp0WordsRemaining = 12;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedTextureBlendOpaque;
+			break;
+		case 0x3e:
+			commandParameters.gp0WordsRemaining = 12;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedTextureBlendTransparent;
 			break;
 		case 0x60:
 			commandParameters.gp0WordsRemaining = 3;
@@ -381,6 +405,10 @@ void Gpu::gp0(uint32_t value)
 		case 0x65:
 			commandParameters.gp0WordsRemaining = 4;
 			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureRawOpaque;
+			break;
+		case 0x7c:
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureBlendOpaque16x16;
 			break;
 		case 0xa0:
 			commandParameters.gp0WordsRemaining = 3;
@@ -542,9 +570,23 @@ void Gpu::gp0QuadMonoOpaque()
 	m_renderer.pushQuad(vertices);
 }
 
+void Gpu::gp0QuadMonoSemiTransparent()
+{
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[2]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[4]), color, 0.5f)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
 void Gpu::gp0QuadTextureBlendOpaque()
 {
-	Color color = Color(0x80, 0x0, 0x0);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
 		Vertex(Position::fromPacked(m_gp0Command[1]), color),
@@ -558,13 +600,42 @@ void Gpu::gp0QuadTextureBlendOpaque()
 
 void Gpu::gp0QuadTextureRawOpaque()
 {
-	Color color = Color(0x80, 0x0, 0x0);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
 		Vertex(Position::fromPacked(m_gp0Command[1]), color),
 		Vertex(Position::fromPacked(m_gp0Command[3]), color),
 		Vertex(Position::fromPacked(m_gp0Command[5]), color),
 		Vertex(Position::fromPacked(m_gp0Command[7]), color)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0QuadTextureBlendSemiTransparent()
+{
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color, 0.5f)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0QuadTextureRawSemiTransparent()
+{
+	// Using solid red color instead of textures
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color, 0.5f)
 	};
 
 	m_renderer.pushQuad(vertices);
@@ -581,6 +652,28 @@ void Gpu::gp0TriangleShadedOpaque()
 	m_renderer.pushTriangle(vertices);
 }
 
+void Gpu::gp0TriangleTextureBlendOpaque()
+{
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3])),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]))
+	};
+
+	m_renderer.pushTriangle(vertices);
+}
+
+void Gpu::gp0TriangleTextureBlendSemiTransparent()
+{
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]), 0.5f)
+	};
+
+	m_renderer.pushTriangle(vertices);
+}
+
 void Gpu::gp0QuadShadedOpaque()
 {
 	Vertex vertices[] = {
@@ -588,6 +681,30 @@ void Gpu::gp0QuadShadedOpaque()
 		Vertex(Position::fromPacked(m_gp0Command[3]), Color::fromPacked(m_gp0Command[2])),
 		Vertex(Position::fromPacked(m_gp0Command[5]), Color::fromPacked(m_gp0Command[4])),
 		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]))
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0QuadShadedTextureBlendOpaque()
+{
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3])),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6])),
+		Vertex(Position::fromPacked(m_gp0Command[10]), Color::fromPacked(m_gp0Command[9]))
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0QuadShadedTextureBlendTransparent()
+{
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[10]), Color::fromPacked(m_gp0Command[9]), 0.5f)
 	};
 
 	m_renderer.pushQuad(vertices);
@@ -636,6 +753,21 @@ void Gpu::gp0RectTextureRawOpaque()
 		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
 		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
 		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0RectTextureBlendOpaque16x16()
+{
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + 16, topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + 16), color),
+		Vertex(Position(topLeft.getX() + 16, topLeft.getY() + 16), color)
 	};
 
 	m_renderer.pushQuad(vertices);

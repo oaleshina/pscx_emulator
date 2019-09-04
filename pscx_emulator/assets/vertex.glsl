@@ -5,8 +5,9 @@ uniform ivec2 offset;
 
 in ivec2 vertex_position;
 in vec3 vertex_color;
+in float alpha;
 
-out vec3 color;
+out vec4 color;
 
 void main()
 {
@@ -23,5 +24,5 @@ void main()
 	gl_Position = vec4(xpos, ypos, 0.0, 1.0);
 
 	// Convert the components from [0; 255] to [0; 1]
-	color = vertex_color;
+	color = vec4(vertex_color, alpha);
 }

@@ -298,26 +298,47 @@ struct Gpu
 	// GP0(0x01): Clear cache
 	void gp0ClearCache();
 
-	// GP0(0x02): Fill Rectangle
+	// GP0(0x02): Fill rectangle
 	void gp0FillRect();
 
-	// GP0(0x20): Monochrome Opaque Triangle
+	// GP0(0x20): Monochrome opaque triangle
 	void gp0TriangleMonoOpaque();
 
-	// GP0(0x28): Monochrome Opaque Quadrilateral
+	// GP0(0x28): Monochrome opaque quadrilateral
 	void gp0QuadMonoOpaque();
 
-	// GP0(0x2c): Textured-Blended Opaque Quadrilateral
+	// GP0(0x2a): Monochrome semi transparent
+	void gp0QuadMonoSemiTransparent();
+
+	// GP0(0x2c): Textured-blended opaque quadrilateral
 	void gp0QuadTextureBlendOpaque();
 
-	// GP0(0x2d): Raw Textured Opaque Quadrilateral
+	// GP0(0x2d): Raw textured opaque quadrilateral
 	void gp0QuadTextureRawOpaque();
 
-	// GP0(0x30): Shaded Opaque Triangle
+	// GP0(0x2e): Textured-blended semi transparent quadrilateral
+	void gp0QuadTextureBlendSemiTransparent();
+
+	// GP0(0x2f): Raw semi transparent quadrilateral
+	void gp0QuadTextureRawSemiTransparent();
+
+	// GP0(0x30): Shaded opaque triangle
 	void gp0TriangleShadedOpaque();
 
-	// GP0(0x38): Shaded Opaque Quadrilateral
+	// GP0(0x34): Textured-blended opaque triangle
+	void gp0TriangleTextureBlendOpaque();
+
+	// GP0(0x36): Textured-blended semi transparent triangle
+	void gp0TriangleTextureBlendSemiTransparent();
+
+	// GP0(0x38): Shaded opaque quadrilateral
 	void gp0QuadShadedOpaque();
+
+	// GP(0x3c): Textured-blended shaded opaque quadrilateral
+	void gp0QuadShadedTextureBlendOpaque();
+
+	// GP0(0x3e): Textured-blended shaded transparent quadrilateral
+	void gp0QuadShadedTextureBlendTransparent();
 
 	// GP0(0x60): Opaque monochrome rectangle
 	void gp0RectOpaque();
@@ -328,58 +349,61 @@ struct Gpu
 	// GP0(0x65): Opaque rectangle with raw texture
 	void gp0RectTextureRawOpaque();
 
-	// GP0(0xa0): Image Load
+	// GP0(0x7c): Textured-blended opaque 16x16 rectangle
+	void gp0RectTextureBlendOpaque16x16();
+
+	// GP0(0xa0): Image load
 	void gp0ImageLoad();
 
-	// GP0(0xc0): Image Store
+	// GP0(0xc0): Image store
 	void gp0ImageStore();
 
-	// GP0(0xe1) command
+	// GP0(0xe1): Command
 	void gp0DrawMode();
 
-	// GP0(0xe2): Set Texture Window
+	// GP0(0xe2): Set texture window
 	void gp0TextureWindow();
 
-	// GP0(0xe3): Set Drawing Area top left
+	// GP0(0xe3): Set drawing area top left
 	void gp0DrawingAreaTopLeft();
 
-	// GP0(0xe4): Set Drawing Area bottom right
+	// GP0(0xe4): Set drawing area bottom right
 	void gp0DrawingAreaBottomRight();
 
 	// Called when the drawing area changes to notify the renderer
 	void updateDrawingArea();
 
-	// GP0(0xe5): Set Drawing Offset
+	// GP0(0xe5): Set drawing offset
 	void gp0DrawingOffset();
 
-	// GP0(0xe6): Set Mask Bit Setting
+	// GP0(0xe6): Set mask bit setting
 	void gp0MaskBitSetting();
 
 	// GP1(0x0): Soft reset
 	void gp1Reset(TimeKeeper& timeKeeper, InterruptState& irqState);
 
-	// Gp1(0x01): Reset Command Buffer
+	// GP1(0x01): Reset command buffer
 	void gp1ResetCommandBuffer();
 
-	// GP1(0x02): Acknowledge Interrupt
+	// GP1(0x02): Acknowledge interrupt
 	void gp1AcknowledgeIrq();
 
-	// GP1(0x03): Display Enable
+	// GP1(0x03): Display enable
 	void gp1DisplayEnable(uint32_t value);
 
 	// GP1(0x04): DMA direction
 	void gp1DmaDirection(uint32_t value);
 
-	// GP1(0x05): Display VRAM Start
+	// GP1(0x05): Display VRAM start
 	void gp1DisplayVramStart(uint32_t value);
 
-	// GP1(0x06): Display Horizontal Range
+	// GP1(0x06): Display horizontal range
 	void gp1DisplayHorizontalRange(uint32_t value);
 
-	// GP1(0x07): Display Vertical Range
+	// GP1(0x07): Display vertical range
 	void gp1DisplayVerticalRange(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
 
-	// GP1(0x08): Display Mode
+	// GP1(0x08): Display mode
 	void gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// GP1(0x10): Return various GPU state information in the GPUREAD register

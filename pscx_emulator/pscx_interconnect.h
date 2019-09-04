@@ -66,4 +66,5 @@ private:
 	CdRom* m_cdRom; // CDROM controller
 	PadMemCard* m_padMemCard; // Gamepad and memory card controller
 	uint32_t m_ramSize; // Contents of the RAM_SIZE register ( a configuration register for the memory controller )
+	uint32_t m_memControl[9]; // Memory control registers
 };
