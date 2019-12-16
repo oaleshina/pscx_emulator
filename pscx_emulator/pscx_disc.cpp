@@ -23,7 +23,9 @@ XaSector::ResultXaSector XaSector::validateMode1_2(const MinuteSecondFrame& minu
 	for (size_t i = 0; i < _countof(SECTOR_SYNC_PATTERN); ++i)
 	{
 		if (m_raw[i] != SECTOR_SYNC_PATTERN[i])
+		{
 			return ResultXaSector(nullptr, XaSectorStatus::XA_SECTOR_STATUS_INVALID_DATA);
+		}
 	}
 
 	// Check that the expected MSF matches the one we have in the header.
@@ -34,12 +36,15 @@ XaSector::ResultXaSector XaSector::validateMode1_2(const MinuteSecondFrame& minu
 	switch (mode)
 	{
 	case 1:
-		assert(0, "Unhandled Mode 1 sector");
-	case 2:
-		return validateMode2();
-	default:
-		return ResultXaSector(nullptr, XaSectorStatus::XA_SECTOR_STATUS_INVALID_DATA);
+	{
+		assert(("Unhandled Mode 1 sector", false));
 	}
+	case 2:
+	{
+		return validateMode2();
+	}
+	}
+	return ResultXaSector(nullptr, XaSectorStatus::XA_SECTOR_STATUS_INVALID_DATA);
 }
 
 XaSector::ResultXaSector XaSector::validateMode2()

@@ -26,7 +26,7 @@ enum IrqCode
 // CDROM controller state machine.
 enum CommandState
 {
-	// Controller is idle
+	// Controller is idle.
 	COMMAND_STATE_IDLE,
 
 	// Controller is issuing a command or waiting for the return value.
@@ -38,7 +38,10 @@ enum CommandState
 	// Transaction is done but we're still waiting for the interrupt ( IRQ delay ).
 	// For some reason it seems to occur a long time after the RX FIFO is filled
 	// ( thousands of CPU cycles, at least with some commands ).
-	COMMAND_STATE_IRQ_PENDING
+	COMMAND_STATE_IRQ_PENDING,
+
+	// Invalid command state.
+	COMMAND_STATE_INVALID
 };
 
 // CDROM data read state machine.

@@ -186,6 +186,8 @@ uint32_t Channel::getTransferSize()
 	// the "end of list" marker ( 0xffffff )
 	//if (m_sync == Sync::SYNC_LINKED_LIST)
 	//	return <undefined>;
+	// Return zero for now, implement this function by using std::optional
+	return 0x0;
 }
 
 void Channel::done()

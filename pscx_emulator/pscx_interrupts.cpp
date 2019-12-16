@@ -35,10 +35,12 @@ void InterruptState::setInterruptMask(uint16_t mask)
 
 	uint16_t rem = mask;
 	for (size_t i = 0; i < _countof(supported); ++i)
+	{
 		rem &= (~(1 << supported[i]));
+	}
 
 	// Fails on assert. Used for debugging.
-	assert(rem == 0x0, "Unsupported interrupt");
+	assert(("Unsupported interrupt", rem == 0x0));
 	m_mask = mask;
 }
 

@@ -196,24 +196,42 @@ uint32_t Gte::getControl(uint32_t reg) const
 		return controlVector[reg - 21];
 	}
 	case 24:
+	{
 		return m_offsetX;
+	}
 	case 25:
+	{
 		return m_offsetY;
+	}
 	// m_projectionPlaneDistance is read back as a signed even though it is unsigned.
 	case 26:
-		return (int16_t)m_projectionPlaneDistance;
+	{
+		return static_cast<int16_t>(m_projectionPlaneDistance);
+	}
 	case 27:
+	{
 		return m_depthQueingCoefficient;
+	}
 	case 28:
+	{
 		return m_depthQueingOffset;
+	}
 	case 29:
+	{
 		return m_zScaleFactor3;
+	}
 	case 30:
+	{
 		return m_zScaleFactor4;
+	}
 	case 31:
+	{
 		return m_overflowFlags;
-	default:
-		assert(0, "Unhandled GTE control register");
+	}
+    default:
+	{
+		assert(("Unhandled GTE control register", false));
+	}
 	}
 	// Shouldn't be executed.
 	return 0x0;
@@ -394,8 +412,7 @@ void Gte::setControl(uint32_t reg, uint32_t value)
 	}
 	default:
 	{
-		assert(0, "Unhandled GTE control register");
-		break;
+		assert(("Unhandled GTE control register", false));
 	}
 	}
 }
@@ -544,9 +561,12 @@ uint32_t Gte::getData(uint32_t reg) const
 		return m_leadingZerosCountResult;
 	}
 	default:
-		assert(0, "Unhandled GTE data register");
+	{
+		assert(("Unhandled GTE data register", false));
+	}
 	}
 	// Shouldn't be executed.
+	return 0x0;
 }
 
 void Gte::setData(uint32_t reg, uint32_t value)
@@ -729,8 +749,7 @@ void Gte::setData(uint32_t reg, uint32_t value)
 	}
 	default:
 	{
-		assert(0, "Unhandled GTE data register");
-		break;
+		assert(("Unhandled GTE data register", false));
 	}
 	}
 }
@@ -746,31 +765,49 @@ void Gte::command(uint32_t command)
 	switch (opcode)
 	{
 	case 0x01:
+	{
 		cmdRotateTranslatePerspectiveTransformSingle(config);
 		break;
+	}
 	case 0x06:
+	{
 		cmdNormalClip();
 		break;
+	}
 	case 0x10:
+	{
 		cmdDepthQueueSingle(config);
 		break;
+	}
 	case 0x12:
+	{
 		cmdMultiplyVectorByMatrixAndAddVector(config);
 		break;
+	}
 	case 0x13:
+	{
 		cmdNormalColorDepthSingleVector(config);
 		break;
+	}
 	case 0x2d:
+	{
 		cmdAverageSingleZ3();
 		break;
+	}
 	case 0x30:
+	{
 		cmdRotateTranslatePerspectiveTransform(config);
 		break;
+	}
 	case 0x3f:
+	{
 		cmdNormalColorColorTriple(config);
 		break;
+	}
 	default:
-		assert(0, "Unhandled GTE opcode");
+	{
+		assert(("Unhandled GTE opcode", false));
+	}
 	}
 
 	// Update the flags MSB: OR together bits [30:23] + [18:13].
@@ -914,7 +951,7 @@ void Gte::doNormalColorDepthTransformation(const CommandConfig& config, uint8_t 
 
 		int32_t temporary = converti64Toi32Result(product) >> config.getShift();
 		int64_t accumulatorsSignedHalfword0 = m_accumulatorsSignedHalfwords[0];
-		int64_t saturateResult = truncatei32Toi16Saturate(CommandConfig::fromCommand(0x0), i, temporary);
+		int64_t saturateResult = truncatei32Toi16Saturate(CommandConfig::fromCommand(0x0), static_cast<uint8_t>(i), temporary);
 
 		int32_t result = converti64Toi32Result(shading + accumulatorsSignedHalfword0 * saturateResult);
 		m_accumulatorsSignedWord[i + 1] = result >> config.getShift();
@@ -926,8 +963,8 @@ void Gte::doNormalColorDepthTransformation(const CommandConfig& config, uint8_t 
 
 void Gte::multiplyMatrixByVector(const CommandConfig& config, Matrix matrix, uint8_t vectorIndex, ControlVector controlVector)
 {
-	assert(matrix != Matrix::MATRIX_INVALID, "GTE multiplication with invalid matrix");
-	assert(controlVector != ControlVector::CONTROL_VECTOR_FAR_COLOR, "GTE multiplication with far color vector");
+	assert(("GTE multiplication with invalid matrix", matrix != Matrix::MATRIX_INVALID));
+	assert(("GTE multiplication with far color vector", controlVector != ControlVector::CONTROL_VECTOR_FAR_COLOR));
 
 	// Iterate over the matrix rows.
 	for (size_t row = 0; row < 3; row++)
@@ -944,11 +981,11 @@ void Gte::multiplyMatrixByVector(const CommandConfig& config, Matrix matrix, uin
 			int32_t product = vectorComponent * matrixComponent;
 
 			// The operation is done using 44 bit signed arithmetics.
-			result = truncatei64Toi44(column, result + (int64_t)product);
+			result = truncatei64Toi44(static_cast<uint8_t>(column), result + static_cast<int64_t>(product));
 		}
 
 		// Store the result in the accumulator.
-		m_accumulatorsSignedWord[row + 1] = result >> config.getShift();
+		m_accumulatorsSignedWord[row + 1] = static_cast<int32_t>(result >> config.getShift());
 	}
 
 	convertAccumulatorsSignedWordsToHalfwords(config);
@@ -1011,14 +1048,14 @@ uint32_t Gte::doRotateTranslatePerspectiveTransform(const CommandConfig& command
 			int32_t rotation = vector * matrix;
 
 			// The operation is done using 44 bit signed arithmetics.
-			vectorComponent = truncatei64Toi44(column, (int64_t)(vectorComponent + rotation));
+			vectorComponent = truncatei64Toi44(static_cast<uint8_t>(column), static_cast<int64_t>(vectorComponent + rotation));
 		}
 
 		// Store the result in the accumulator.
-		m_accumulatorsSignedWord[row + 1] = vectorComponent >> commandConfig.getShift();
+		m_accumulatorsSignedWord[row + 1] = static_cast<int32_t>(vectorComponent >> commandConfig.getShift());
 
 		// The last result will be Z, overwrite it each time and the last one will be the good one.
-		zShifted = vectorComponent >> 12;
+		zShifted = static_cast<int32_t>(vectorComponent >> 12);
 	}
 
 	// Step 2: we take the 32 bit camera coordinates in accumulator signed words and convert
@@ -1112,7 +1149,7 @@ void Gte::depthQueuing(uint32_t projectionFactor)
 
 	// Compute 16 bit accumulate signed halfword value.
 	depth >>= 12;
-	m_accumulatorsSignedHalfwords[0x0] = depth;
+	m_accumulatorsSignedHalfwords[0x0] = static_cast<int16_t>(depth);
 	if (depth < 0)
 	{
 		setFlag(12);
@@ -1173,17 +1210,20 @@ int16_t Gte::truncatei32Toi11Saturate(uint8_t flag, int32_t value)
 		setFlag(14 - flag);
 		return 0x3ff;
 	}
-	return value;
+	return static_cast<int16_t>(value);
 }
 
 int32_t Gte::converti64Toi32Result(int64_t value)
 {
 	if (value < -0x80000000000)
+	{
 		setFlag(15);
+	}
 	else if (value > 0x7ffffffffff)
+	{
 		setFlag(16);
-
-	return value;
+	}
+	return static_cast<int32_t>(value);
 }
 
 uint16_t Gte::converti64TozAverage(int64_t average)
@@ -1199,5 +1239,5 @@ uint16_t Gte::converti64TozAverage(int64_t average)
 		setFlag(18);
 		return 0xffff;
 	}
-	return value;
+	return static_cast<uint16_t>(value);
 }

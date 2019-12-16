@@ -35,8 +35,6 @@ Renderer::Renderer()
 	m_framebufferXResolution = 1024;
 	m_framebufferYResolution = 768;
 
-	SDL_DisplayMode current;
-
 	m_window = SDL_CreateWindow("PSX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, m_framebufferXResolution, m_framebufferYResolution, SDL_WINDOW_OPENGL);
 
 	m_glContext = SDL_GL_CreateContext(m_window);
@@ -118,7 +116,7 @@ GLuint Renderer::compileShader(char* src, GLenum shaderType)
 {
 	GLuint shaderHandle = 0;
 
-	GLint shaderSize = strlen(src);
+	GLint shaderSize = static_cast<GLint>(strlen(src));
 	shaderHandle = glCreateShader(shaderType);
 
 	glShaderSource(shaderHandle, 1, &src, &shaderSize);

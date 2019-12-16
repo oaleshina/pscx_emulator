@@ -86,10 +86,13 @@ std::pair<uint8_t, bool> DigitalProfile::handleCommand(uint8_t seq, uint8_t cmd)
 
 void DigitalProfile::setButtonState(Button button, ButtonState state)
 {
-	size_t mask = 1 << (size_t)button;
-
+	size_t mask = 1ULL << button;
 	if (state == ButtonState::BUTTON_STATE_PRESSED)
+	{
 		m_digitalProfile &= ~mask;
+	}
 	else if (state == ButtonState::BUTTON_STATE_RELEASED)
+	{
 		m_digitalProfile |= mask;
+	}
 }

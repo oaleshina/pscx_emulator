@@ -6,7 +6,7 @@
 template<typename T>
 void Spu::store(uint32_t offset, T value)
 {
-	assert((std::is_same<uint16_t, T>::value), "Unhandled SPU store");
+	assert(("Unhandled SPU store", (std::is_same<uint16_t, T>::value)));
 
 	// Convert into a halfword index.
 	size_t index = offset >> 1;
@@ -15,7 +15,7 @@ void Spu::store(uint32_t offset, T value)
 	{
 		switch (index & 0x7)
 		{
-		case regmap::voice::VOLUME_LEFT: // => ()
+		case regmap::voice::VOLUME_LEFT:
 		case regmap::voice::VOLUME_RIGHT:
 		case regmap::voice::ADPCM_SAMPLE_RATE:
 		case regmap::voice::ADPCM_START_INDEX:
@@ -23,9 +23,13 @@ void Spu::store(uint32_t offset, T value)
 		case regmap::voice::ADPCM_ADSR_HIGH:
 		case regmap::voice::CURRENT_ADSR_VOLUME:
 		case regmap::voice::ADPCM_REPEAT_INDEX:
+		{
 			break;
+		}
 		default:
-			assert(0, "Unreachable!");
+		{
+			assert(("Unreachable!", false));
+		}
 		}
 	}
 	else
@@ -36,19 +40,29 @@ void Spu::store(uint32_t offset, T value)
 		case regmap::MAIN_VOLUME_RIGHT:
 		case regmap::REVERB_VOLUME_LEFT:
 		case regmap::REVERB_VOLUME_RIGHT:
+		{
 			break;
+		}
 		case regmap::VOICE_ON_LOW:
+		{
 			m_shadowRegisters[regmap::VOICE_STATUS_LOW] |= value;
 			break;
+		}
 		case regmap::VOICE_ON_HIGH:
+		{
 			m_shadowRegisters[regmap::VOICE_STATUS_HIGH] |= value;
 			break;
+		}
 		case regmap::VOICE_OFF_LOW:
+		{
 			m_shadowRegisters[regmap::VOICE_STATUS_LOW] &= ~value;
 			break;
+		}
 		case regmap::VOICE_OFF_HIGH:
+		{
 			m_shadowRegisters[regmap::VOICE_STATUS_HIGH] &= ~value;
 			break;
+		}
 		case regmap::VOICE_PITCH_MOD_EN_LOW:
 		case regmap::VOICE_PITCH_MOD_EN_HIGH:
 		case regmap::VOICE_NOISE_EN_LOW:
@@ -58,19 +72,29 @@ void Spu::store(uint32_t offset, T value)
 		case regmap::VOICE_STATUS_LOW:
 		case regmap::VOICE_STATUS_HIGH:
 		case regmap::REVERB_BASE:
+		{
 			break;
+		}
 		case regmap::TRANSFER_START_INDEX:
-			m_ramIndex = (uint32_t)value << 2;
+		{
+			m_ramIndex = static_cast<uint32_t>(value) << 2;
 			break;
+		}
 		case regmap::TRANSFER_FIFO:
+		{
 			fifoWrite(value);
 			break;
+		}
 		case regmap::CONTROL:
+		{
 			setControl(value);
 			break;
+		}
 		case regmap::TRANSFER_CONTROL:
+		{
 			setTransferControl(value);
 			break;
+		}
 		case regmap::CD_VOLUME_LEFT:
 		case regmap::CD_VOLUME_RIGHT:
 		case regmap::EXT_VOLUME_LEFT:
@@ -107,9 +131,13 @@ void Spu::store(uint32_t offset, T value)
 		case regmap::REVERB_APF_RIGHT2:
 		case regmap::REVERB_INPUT_VOLUME_LEFT:
 		case regmap::REVERB_INPUT_VOLUME_RIGHT:
+		{
 			break;
+		}
 		default:
-			assert(0, "Unhandled SPU store");
+		{
+			assert(("Unhandled SPU store", false));
+		}
 		}
 	}
 
@@ -124,7 +152,7 @@ template void Spu::store<uint8_t >(uint32_t, uint8_t );
 template<typename T>
 T Spu::load(uint32_t offset)
 {
-	assert((std::is_same<uint16_t, T>::value), "Unhandled SPU load");
+	assert(("Unhandled SPU load", (std::is_same<uint16_t, T>::value)));
 
 	size_t index = offset >> 1;
 
@@ -136,8 +164,10 @@ T Spu::load(uint32_t offset)
 		case regmap::voice::CURRENT_ADSR_VOLUME:
 		case regmap::voice::ADPCM_REPEAT_INDEX:
 		default:
+		{
 			shadowRegister = m_shadowRegisters[index];
 			break;
+		}
 		}
 	}
 	else
@@ -155,21 +185,28 @@ T Spu::load(uint32_t offset)
 		case regmap::TRANSFER_START_INDEX:
 		case regmap::CONTROL:
 		case regmap::TRANSFER_CONTROL:
+		{
 			shadowRegister = m_shadowRegisters[index];
 			break;
+		}
 		case regmap::STATUS:
+		{
 			shadowRegister = getStatus();
 			break;
+		}
 		case regmap::CURRENT_VOLUME_LEFT:
 		case regmap::CURRENT_VOLUME_RIGHT:
+		{
 			shadowRegister = m_shadowRegisters[index];
 			break;
+		}
 		default:
-			assert(0, "Unhandled SPU load");
+		{
+			assert(("Unhandled SPU load", false));
+		}
 		}
 	}
-
-	return shadowRegister;
+	return static_cast<T>(shadowRegister);
 }
 
 template uint32_t Spu::load<uint32_t>(uint32_t);
@@ -178,13 +215,13 @@ template uint8_t  Spu::load<uint8_t >(uint32_t);
 
 void Spu::setControl(uint16_t value)
 {
-	assert((value & 0x3f4a) == 0x0, "Unhandled SPU control");
+	assert(("Unhandled SPU control", (value & 0x3f4a) == 0x0));
 }
 
 
 void Spu::setTransferControl(uint16_t value)
 {
-	assert(value == 0x4, "Unhandled SPU RAM access pattern");
+	assert(("Unhandled SPU RAM access pattern", value == 0x4));
 }
 
 void Spu::fifoWrite(uint16_t value)

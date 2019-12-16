@@ -41,8 +41,8 @@ void Cpu::cacheMaintenance(uint32_t addr, T value)
 	// use case for cache isolation.
 	CacheControl cacheControl = m_inter.getCacheControl();
 
-	assert(cacheControl.icacheEnabled(), "Cache maintenance while instruction cache is disabled");
-	assert((std::is_same<uint32_t, T>::value) && value == 0, "Unsupported write while cache is isolated");
+	assert(("Cache maintenance while instruction cache is disabled", cacheControl.icacheEnabled()));
+	assert(("Unsupported write while cache is isolated", (std::is_same<uint32_t, T>::value) && value == 0));
 
 	uint32_t line = (addr >> 4) & 0xff;
 
@@ -401,7 +401,7 @@ Instruction Cpu::fetchInstruction()
 				m_timeKeeper.tick(1);
 
 				Instruction instruction = m_inter.loadInstruction<uint32_t>(currentPc);
-				cacheLine.setInstruction(i, instruction);
+				cacheLine.setInstruction(static_cast<uint32_t>(i), instruction);
 				currentPc += 4;
 			}
 
@@ -527,7 +527,9 @@ Cpu::InstructionType Cpu::opcodeMTC0(const Instruction& instruction)
 	case 11:
 		// Breakpoints registers
 		if (targetRegisterValue)
+		{
 			LOG("Unhandled write to cop0 register 0x" << std::hex << cop0Register);
+		}
 		break;
 	// $cop0_12
 	case 12:
@@ -538,7 +540,9 @@ Cpu::InstructionType Cpu::opcodeMTC0(const Instruction& instruction)
 	case 13:
 		// Cause register
 		if (targetRegisterValue)
+		{
 			LOG("Unhandled write to CAUSE register " << std::hex << cop0Register);
+		}
 		break;
 	default:
 		LOG("Unhandled cop0 register 0x" << std::hex << cop0Register);
@@ -1004,7 +1008,7 @@ Cpu::InstructionType Cpu::opcodeRFE(const Instruction& instruction)
 	// There are other instructions with the same encoding but all
 	// are virtual memory related and the Playstation doesn't implement them.
 	// Still, let's make sure we're not running buggy code.
-	if (instruction.getInstructionOpcode() & 0x3f != 0b010000)
+	if ((instruction.getInstructionOpcode() & 0x3f) != 0b010000)
 	{
 		LOG("Invalid cop 0 instruction:" << std::hex << instruction.getInstructionOpcode());
 		return INSTRUCTION_TYPE_UNKNOWN;
@@ -1199,19 +1203,29 @@ Cpu::InstructionType Cpu::opcodeCOP2(const Instruction& instruction)
 		switch (copOpcode)
 		{
 		case 0b00000:
+		{
 			instructionType = opcodeMFC2(instruction);
 			break;
+		}
 		case 0b00010:
+		{
 			instructionType = opcodeCFC2(instruction);
 			break;
+		}
 		case 0b00100:
+		{
 			instructionType = opcodeMTC2(instruction);
 			break;
+		}
 		case 0b00110:
+		{
 			instructionType = opcodeCTC2(instruction);
 			break;
+		}
 		default:
-			assert(0, "Unhandled GTE instruction");
+		{
+			assert(("Unhandled GTE instruction", false));
+		}
 		}
 	}
 	return instructionType;
@@ -1525,12 +1539,12 @@ Cpu::InstructionType Cpu::opcodeIllegal(const Instruction& instruction)
 
 uint32_t Cpu::getRegisterValue(RegisterIndex registerIndex) const
 {
-	assert(registerIndex.getRegisterIndex() < _countof(m_regs), "Index out of boundaries");
+	assert(("Index out of boundaries", registerIndex.getRegisterIndex() < _countof(m_regs)));
 	return m_regs[registerIndex.getRegisterIndex()];
 }
 
 void Cpu::setRegisterValue(RegisterIndex registerIndex, uint32_t value)
 {
-	assert(registerIndex.getRegisterIndex() < _countof(m_outRegs), "Index out of boundaries");
+	assert(("Index out of boundaries", registerIndex.getRegisterIndex() < _countof(m_outRegs)));
 	if (registerIndex.getRegisterIndex() > 0) m_outRegs[registerIndex.getRegisterIndex()] = value;
 }

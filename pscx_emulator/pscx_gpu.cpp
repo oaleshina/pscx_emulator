@@ -37,8 +37,8 @@ FracCycles Gpu::dotclockPeriod() const
 
 FracCycles Gpu::dotclockPhase() const
 {
-	//return FracCycles::fromCycles(m_gpuClockPhase);
-	assert(0, "GPU dotclock phase is not implemented");
+	// return FracCycles::fromCycles(m_gpuClockPhase);
+	assert(("GPU dotclock phase is not implemented", false));
 	return 0;
 }
 
@@ -72,7 +72,7 @@ void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	delta = (Cycles)m_gpuClockPhase + delta * gpuToCpuClockRatio().getFp();
 
 	// The 16 low bits are the new fractional part
-	m_gpuClockPhase = delta;
+	m_gpuClockPhase = static_cast<uint16_t>(delta);
 
 	// Convert delta back to integer
 	delta >>= 16;
@@ -86,9 +86,9 @@ void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	Cycles lineTick = (Cycles)m_displayLineTick + delta;
 	Cycles line = (Cycles)m_displayLine + lineTick / ticksPerLine;
 
-	m_displayLineTick = lineTick % ticksPerLine;
+	m_displayLineTick = static_cast<uint16_t>(lineTick % ticksPerLine);
 
-	m_displayLine = line;
+	m_displayLine = static_cast<uint16_t>(line);
 	if (line > linesPerFrame)
 	{
 		// New frame
@@ -99,9 +99,11 @@ void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 
 			m_field = Field::FIELD_BOTTOM;
 			if ((nframes + (Cycles)m_field) & 1)
+			{
 				m_field = Field::FIELD_TOP;
+			}
 		}
-		m_displayLine = line % linesPerFrame;
+		m_displayLine = static_cast<uint16_t>(line % linesPerFrame);
 	}
 
 	bool vblankInterrupt = inVblank();
@@ -199,16 +201,20 @@ uint16_t Gpu::displayedVramLine() const
 template<typename T>
 T Gpu::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 {
-	assert((std::is_same<uint32_t, T>::value), "Unhandled GPU load");
+	assert(("Unhandled GPU load", (std::is_same<uint32_t, T>::value)));
 
 	sync(timeKeeper, irqState);
 
 	// GPUSTAT: set bit 26, 27, 28 to signal that the GPU is ready for DMA and CPU access.
 	// This way the BIOS won't dead lock waiting for an event that will never come
 	if (offset == 0x0)
+	{
 		return getReadRegister();
-	if (offset == 0x4)
+	}
+	else if (offset == 0x4)
+	{
 		return getStatusRegister();
+	}
 	
 	return 0;
 }
@@ -220,17 +226,21 @@ template uint8_t  Gpu::load<uint8_t> (TimeKeeper&, InterruptState&, uint32_t);
 template<typename T>
 void Gpu::store(TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState, uint32_t offset, T value)
 {
-	assert((std::is_same<uint32_t, T>::value), "Unhandled GPU store");
-
+	assert(("Unhandled GPU store", (std::is_same<uint32_t, T>::value)));
 	sync(timeKeeper, irqState);
 
 	if (offset == 0x0)
+	{
 		gp0(value);
+	}
 	else if (offset == 0x4)
+	{
 		gp1(value, timeKeeper, timers, irqState);
+	}
 	else
+	{
 		LOG("GPU write 0x" << std::hex << offset << " 0x" << value);
-	return;
+	}
 }
 
 template void Gpu::store<uint32_t>(TimeKeeper&, Timers&, InterruptState&, uint32_t, uint32_t);
@@ -331,120 +341,177 @@ void Gpu::gp0(uint32_t value)
 		switch (opcode)
 		{
 		case 0x0:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0Nop;
 			break;
+		}
 		case 0x01:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0ClearCache;
 			break;
+		}
 		case 0x02:
+		{
 			commandParameters.gp0WordsRemaining = 3;
 			commandParameters.gp0CommandMethod = &Gpu::gp0FillRect;
 			break;
+		}
 		case 0x20:
+		{
 			commandParameters.gp0WordsRemaining = 4;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleMonoOpaque;
 			break;
+		}
 		case 0x28:
+		{
 			commandParameters.gp0WordsRemaining = 5;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoOpaque;
 			break;
+		}
 		case 0x2a:
+		{
 			commandParameters.gp0WordsRemaining = 5;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoSemiTransparent;
 			break;
+		}
 		case 0x2c:
+		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendOpaque;
 			break;
+		}
 		case 0x2d:
+		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawOpaque;
 			break;
+		}
 		case 0x2e:
+		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendSemiTransparent;
 			break;
+		}
 		case 0x2f:
+		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawSemiTransparent;
 			break;
+		}
 		case 0x30:
+		{
 			commandParameters.gp0WordsRemaining = 6;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleShadedOpaque;
 			break;
+		}
 		case 0x34:
+		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleTextureBlendOpaque;
 			break;
+		}
 		case 0x36:
+		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleTextureBlendSemiTransparent;
 			break;
+		}
 		case 0x38:
+		{
 			commandParameters.gp0WordsRemaining = 8;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedOpaque;
 			break;
+		}
 		case 0x3c:
+		{
 			commandParameters.gp0WordsRemaining = 12;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedTextureBlendOpaque;
 			break;
+		}
 		case 0x3e:
+		{
 			commandParameters.gp0WordsRemaining = 12;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedTextureBlendTransparent;
 			break;
+		}
 		case 0x60:
+		{
 			commandParameters.gp0WordsRemaining = 3;
 			commandParameters.gp0CommandMethod = &Gpu::gp0RectOpaque;
 			break;
+		}
 		case 0x64:
+		{
 			commandParameters.gp0WordsRemaining = 4;
 			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureBlendOpaque;
 			break;
+		}
 		case 0x65:
+		{
 			commandParameters.gp0WordsRemaining = 4;
 			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureRawOpaque;
 			break;
+		}
 		case 0x7c:
+		{
 			commandParameters.gp0WordsRemaining = 3;
 			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureBlendOpaque16x16;
 			break;
+		}
 		case 0xa0:
+		{
 			commandParameters.gp0WordsRemaining = 3;
 			commandParameters.gp0CommandMethod = &Gpu::gp0ImageLoad;
 			break;
+		}
 		case 0xc0:
+		{
 			commandParameters.gp0WordsRemaining = 3;
 			commandParameters.gp0CommandMethod = &Gpu::gp0ImageStore;
 			break;
+		}
 		case 0xe1:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0DrawMode;
 			break;
+		}
 		case 0xe2:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TextureWindow;
 			break;
+		}
 		case 0xe3:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0DrawingAreaTopLeft;
 			break;
+		}
 		case 0xe4:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0DrawingAreaBottomRight;
 			break;
+		}
 		case 0xe5:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0DrawingOffset;
 			break;
+		}
 		case 0xe6:
+		{
 			commandParameters.gp0WordsRemaining = 1;
 			commandParameters.gp0CommandMethod = &Gpu::gp0MaskBitSetting;
 			break;
+		}
 		default:
-			assert(0, "Unhandled GP0 command");
-			break;
+		{
+			assert(("Unhandled GP0 command", false));
+		}
 		}
 
 		m_gp0WordsRemaining = commandParameters.gp0WordsRemaining;
@@ -481,39 +548,61 @@ void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, Timers& timers, InterruptS
 	switch (opcode)
 	{
 	case 0x0:
+	{
 		gp1Reset(timeKeeper, irqState);
 		timers.videoTimingsChanged(timeKeeper, irqState, *this);
 		break;
+	}
 	case 0x01:
+	{
 		gp1ResetCommandBuffer();
 		break;
+	}
 	case 0x02:
+	{
 		gp1AcknowledgeIrq();
 		break;
+	}
 	case 0x03:
+	{
 		gp1DisplayEnable(value);
 		break;
+	}
 	case 0x04:
+	{
 		gp1DmaDirection(value);
 		break;
+	}
 	case 0x05:
+	{
 		gp1DisplayVramStart(value);
 		break;
+	}
 	case 0x06:
+	{
 		gp1DisplayHorizontalRange(value);
 		break;
+	}
 	case 0x07:
+	{
 		gp1DisplayVerticalRange(value, timeKeeper, irqState);
 		break;
+	}
 	case 0x08:
+	{
 		gp1DisplayMode(value, timeKeeper, irqState);
 		timers.videoTimingsChanged(timeKeeper, irqState, *this);
 		break;
+	}
 	case 0x10:
+	{
 		gp1GetInfo(value);
 		break;
+	}
 	default:
-		assert(0, "Unhandled GP1 command");
+	{
+		assert(("Unhandled GP1 command", false));
+	}
 	}
 }
 
@@ -977,21 +1066,29 @@ void Gpu::gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper, InterruptState&
 
 	m_vres = VerticalRes::VERTICAL_RES_240_LINES;
 	if (value & 0x4)
+	{
 		m_vres = VerticalRes::VERTICAL_RES_480_LINES;
+	}
 	
 	m_vmode = VMode::VMODE_NTSC;
 	if (value & 0x8)
+	{
 		m_vmode = VMode::VMODE_PAL;
+	}
 	
 	m_displayDepth = DisplayDepth::DISPLAY_DEPTH_24_BITS;
 	if (value & 0x10)
+	{
 		m_displayDepth = DisplayDepth::DISPLAY_DEPTH_15_BITS;
+	}
 
 	m_interlaced = value & 0x20;
 	m_field = Field::FIELD_TOP;
 
 	if (value & 0x80)
+	{
 		LOG("Unsupported display mode 0x" << std::hex << val);
+	}
 
 	sync(timeKeeper, irqState);
 }
@@ -1001,17 +1098,25 @@ void Gpu::gp1DmaDirection(uint32_t value)
 	switch (value & 0x3)
 	{
 	case 0:
+	{
 		m_dmaDirection = DmaDirection::DMA_DIRECTION_OFF;
 		break;
+	}
 	case 1:
+	{
 		m_dmaDirection = DmaDirection::DMA_DIRECTION_FIFO;
 		break;
+	}
 	case 2:
+	{
 		m_dmaDirection = DmaDirection::DMA_DIRECTION_CPU_TO_GP0;
 		break;
+	}
 	case 3:
+	{
 		m_dmaDirection = DmaDirection::DMA_DIRECTION_VRAM_TO_CPU;
 		break;
+	}
 	}
 }
 
@@ -1040,11 +1145,15 @@ void Gpu::gp1GetInfo(uint32_t value)
 	switch (value & 0xf)
 	{
 	case 3:
+	{
 		m_readWord = (uint32_t)m_drawingAreaLeft | ((uint32_t)m_drawingAreaTop << 10);
 		break;
+	}
 	case 4:
+	{
 		m_readWord = (uint32_t)m_drawingAreaRight | ((uint32_t)m_drawingAreaBottom << 10);
 		break;
+	}
 	case 5:
 	{
 		uint32_t x = (uint32_t)m_drawingOffset.first & 0x7ff;
@@ -1053,10 +1162,14 @@ void Gpu::gp1GetInfo(uint32_t value)
 		break;
 	}
 	case 7:
+	{
 		// GPU version. Should always be 2 ?
 		m_readWord = 2;
 		break;
+	}
 	default:
-		assert(0, "Unsupported GP1 info command");
+	{
+		assert(("Unsupported GP1 info command", false));
+	}
 	}
 }

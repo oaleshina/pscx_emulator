@@ -31,22 +31,32 @@ void PadMemCard::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_
 	switch (offset)
 	{
 	case 0:
-		assert((std::is_same<T, uint8_t>::value), "Unhandled gamepad TX access");
-		sendCommand(timeKeeper, (uint8_t)value);
+	{
+		assert(("Unhandled gamepad TX access", (std::is_same<T, uint8_t>::value)));
+		sendCommand(timeKeeper, static_cast<uint8_t>(value));
 		break;
+	}
 	case 8:
-		setMode((uint8_t)value);
+	{
+		setMode(static_cast<uint8_t>(value));
 		break;
+	}
 	case 10:
+	{
 		// Byte access behaves like a halfword
-		assert((!std::is_same<T, uint8_t>::value), "Unhandled byte gamepad control access");
-		setControl(irqState, (uint16_t)value);
+		assert(("Unhandled byte gamepad control access", (!std::is_same<T, uint8_t>::value)));
+		setControl(irqState, static_cast<uint16_t>(value));
 		break;
+	}
 	case 14:
-		m_baudRateDivider = (uint16_t)value;
+	{
+		m_baudRateDivider = static_cast<uint16_t>(value);
 		break;
+	}
 	default:
-		assert(0, "Unhandled write to gamepad register");
+	{
+		assert(("Unhandled write to gamepad register", false));
+	}
 	}
 }
 
@@ -63,8 +73,8 @@ T PadMemCard::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t of
 	{
 	case 0:
 	{
-		assert((std::is_same<T, uint8_t>::value), "Unhandled gamepad TX access");
-		uint32_t response = (uint32_t)m_response;
+		assert(("Unhandled gamepad TX access", (std::is_same<T, uint8_t>::value)));
+		uint32_t response = static_cast<uint32_t>(m_response);
 		m_rxNotEmpty = false;
 		m_response = 0xff;
 		return response;
@@ -75,14 +85,16 @@ T PadMemCard::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t of
 	}
 	case 10:
 	{
-		return (uint32_t)getControl();
+		return static_cast<uint32_t>(getControl());
 	}
 	case 14:
 	{
-		return (uint32_t)m_baudRateDivider;
+		return static_cast<uint32_t>(m_baudRateDivider);
 	}
 	default:
-		assert(0, "Unhandled gamepad read");
+	{
+		assert(("Unhandled gamepad read", false));
+	}
 	}
 	return ~0;
 }
@@ -98,21 +110,28 @@ void PadMemCard::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	switch (m_busState)
 	{
 	case BusState::BUS_STATE_IDLE:
+	{
 		timeKeeper.noSyncNeeded(Peripheral::PERIPHERAL_PAD_MEMCARD);
 		break;
+	}
 	case BusState::BUS_STATE_TRANSFER:
+	{
 		if (delta < m_helperBusTransfer.m_cyclesRemaining)
 		{
 			m_helperBusTransfer.m_cyclesRemaining -= delta;
 			if (m_dsrInterrupt)
+			{
 				timeKeeper.setNextSyncDelta(Peripheral::PERIPHERAL_PAD_MEMCARD, m_helperBusTransfer.m_cyclesRemaining);
+			}
 			else
+			{
 				timeKeeper.noSyncNeeded(Peripheral::PERIPHERAL_PAD_MEMCARD);
+			}
 		}
 		else
 		{
 			// We reached the end of the transfer
-			assert(!m_rxNotEmpty, "Gamepad RX while FIFO isn't empty");
+			assert(("Gamepad RX while FIFO isn't empty", !m_rxNotEmpty));
 
 			m_response = m_helperBusTransfer.m_responseByte;
 			m_rxNotEmpty = true;
@@ -145,7 +164,9 @@ void PadMemCard::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 			timeKeeper.noSyncNeeded(Peripheral::PERIPHERAL_PAD_MEMCARD);
 		}
 		break;
+	}
 	case BusState::BUS_STATE_DSR:
+	{
 		if (delta < m_helperBusDsr.m_cyclesRemaining)
 		{
 			m_helperBusDsr.m_cyclesRemaining -= delta;
@@ -159,6 +180,7 @@ void PadMemCard::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 		timeKeeper.noSyncNeeded(Peripheral::PERIPHERAL_PAD_MEMCARD);
 		break;
 	}
+	}
 }
 
 std::vector<Profile*> PadMemCard::getPadProfiles()
@@ -170,18 +192,24 @@ std::vector<Profile*> PadMemCard::getPadProfiles()
 void PadMemCard::sendCommand(TimeKeeper& timeKeeper, uint8_t cmd)
 {
 	// It should be stored in the FIFO and sent when transmissionEnabled is set.
-	assert(m_transmissionEnabled, "Unhandled gamepad command while transmissionEnabled is disabled");
+	assert(("Unhandled gamepad command while transmissionEnabled is disabled", m_transmissionEnabled));
 
 	if (m_busState != BusState::BUS_STATE_IDLE)
+	{
 		LOG("Gamepad command 0x" << std::hex << cmd << "while bus is busy!");
+	}
 
 	std::pair<uint8_t, bool> command;
 	if (m_select)
 	{
 		if (m_target == Target::TARGET_PAD_MEMCARD1)
+		{
 			command = m_pad1.sendCommand(cmd);
+		}
 		else if (m_target == Target::TARGET_PAD_MEMCARD2)
+		{
 			command = m_pad2.sendCommand(cmd);
+		}
 	}
 	else
 	{
@@ -277,15 +305,14 @@ void PadMemCard::setControl(InterruptState& irqState, uint16_t ctrl)
 		m_select = (ctrl >> 1) & 1;
 		//m_rxEnabled = (ctrl >> 2) & 1;
 		m_dsrInterrupt = (ctrl >> 12) & 1;
-		if (ctrl & 0x2000 == 0) m_target = Target::TARGET_PAD_MEMCARD1;
-		else m_target = Target::TARGET_PAD_MEMCARD2;
+		m_target = ((ctrl & 0x2000) == 0) ? Target::TARGET_PAD_MEMCARD1 : Target::TARGET_PAD_MEMCARD2;
 
-		//assert(!m_rxEnabled, "Gamepad rxEnabled is not implemented");
-
-		assert(!(m_dsrInterrupt && !m_interruptLevel && m_dataSetReadySignal), "dsrInterrupt is enabled while DSR signal is active");
-		assert(!(ctrl & 0xf00), "Unsupported gamepad interrupts");
+		assert(("dsrInterrupt is enabled while DSR signal is active", !(m_dsrInterrupt && !m_interruptLevel && m_dataSetReadySignal)));
+		assert(("Unsupported gamepad interrupts", !(ctrl & 0xf00)));
 
 		if (!previousSelect && m_select)
+		{
 			m_pad1.setSelect();
+		}
 	}
 }

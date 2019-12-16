@@ -136,19 +136,28 @@ void Timer::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 		switch (m_instance)
 		{
 		case Peripheral::PERIPHERAL_TIMER0:
+		{
 			interrupt = Interrupt::INTERRUPT_TIMER0;
 			break;
+		}
 		case Peripheral::PERIPHERAL_TIMER1:
+		{
 			interrupt = Interrupt::INTERRUPT_TIMER1;
 			break;
+		}
 		case Peripheral::PERIPHERAL_TIMER2:
+		{
 			interrupt = Interrupt::INTERRUPT_TIMER2;
+			break;
+		}
 		default:
+		{
 			// Unreachable
 			break;
 		}
+		}
 
-		assert(m_negateIrq == false, "Unhandled negate IRQ!");
+		assert(("Unhandled negate IRQ!", m_negateIrq == false));
 
 		// Pulse interrupt
 		irqState.raiseAssert(interrupt);
@@ -173,7 +182,9 @@ void Timer::predictNextSync(TimeKeeper& timeKeeper)
 
 	uint16_t countDown = 0xffff - m_counter + m_target;
 	if (m_counter <= m_target)
+	{
 		countDown = m_target - m_counter;
+	}
 
 	// Convert from timer count to CPU cycles
 	Cycles delta = m_period.getFp() * ((Cycles)countDown + 1);
@@ -186,7 +197,10 @@ void Timer::predictNextSync(TimeKeeper& timeKeeper)
 
 bool Timer::needsGpu()
 {
-	if (m_useSync) LOG("Sync mode not supported!");
+	if (m_useSync)
+	{
+		LOG("Sync mode not supported!");
+	}
 	return ::needsGpu(m_clockSource.clock(m_instance));
 }
 
@@ -230,10 +244,13 @@ void Timer::setMode(uint16_t value)
 	// Writing to mode resets the counter
 	m_counter = 0;
 
-	assert(!m_wrapIrq, "Wrap IRQ not supported");
-	assert(!((m_wrapIrq || m_targetIrq) && !m_repeatIrq), "One shot timer interrupts are not supported");
-	assert(!m_negateIrq, "Only pulse interrupts are supported");
-	if (m_useSync) LOG("Sync mode is not supported");
+	assert(("Wrap IRQ not supported", !m_wrapIrq));
+	assert(("One shot timer interrupts are not supported", !((m_wrapIrq || m_targetIrq) && !m_repeatIrq)));
+	assert(("Only pulse interrupts are supported", !m_negateIrq));
+	if (m_useSync)
+	{
+		LOG("Sync mode is not supported");
+	}
 }
 
 uint16_t Timer::getTarget() const
@@ -261,7 +278,7 @@ template<typename T>
 void Timers::store(TimeKeeper& timeKeeper, InterruptState& irqState,
 	Gpu& gpu, uint32_t offset, T value)
 {
-	assert((std::is_same<uint32_t, T>::value || std::is_same<uint16_t, T>::value), "Unhandled timer store");
+	assert(("Unhandled timer store", (std::is_same<uint32_t, T>::value || std::is_same<uint16_t, T>::value)));
 
 	uint32_t instance = offset >> 4;
 
@@ -297,7 +314,7 @@ template void Timers::store<uint8_t >(TimeKeeper&, InterruptState&, Gpu&, uint32
 template<typename T>
 T Timers::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 {
-	assert((std::is_same<uint32_t, T>::value || std::is_same<uint16_t, T>::value), "Unhandled timer load");
+	assert(("Unhandled timer load", (std::is_same<uint32_t, T>::value || std::is_same<uint16_t, T>::value)));
 
 	uint32_t instance = offset >> 4;
 
@@ -308,20 +325,28 @@ T Timers::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset
 	switch (offset & 0xf)
 	{
 	case 0:
-		value = timer.getCounter();
+	{
+		value = static_cast<T>(timer.getCounter());
 		break;
+	}
 	case 4:
-		value = timer.getMode();
+	{
+		value = static_cast<T>(timer.getMode());
 		break;
+	}
 	case 8:
-		value = timer.getTarget();
+	{
+		value = static_cast<T>(timer.getTarget());
 		break;
+	}
 	default:
+	{
 		LOG("Unhandled timer register");
 		return ~0;
 	}
+	}
 
-	return (uint32_t)value;
+	return static_cast<uint32_t>(value);
 }
 
 template uint32_t Timers::load<uint32_t>(TimeKeeper&, InterruptState&, uint32_t);

@@ -51,13 +51,12 @@ MinuteSecondFrame MinuteSecondFrame::fromBCD(uint8_t minute, uint8_t second, uin
 	uint8_t bcd[] = { minute, second, frame };
 	for (size_t i = 0; i < _countof(bcd); ++i)
 	{
-		assert(!(bcd[i] > 0x99 || (bcd[i] & 0xf) > 0x9), "Invalid MSF");
+		assert(("Invalid MSF", !(bcd[i] > 0x99 || (bcd[i] & 0xf) > 0x9)));
 	}
 
 	// Make sure the frame and seconds make sense.
 	// There are only 75 frames per second and 60 seconds per minute.
-	assert(!(second >= 0x60 || frame >= 0x75), "Invalid MSF");
-
+	assert(("Invalid MSF", !(second >= 0x60 || frame >= 0x75)));
 	return MinuteSecondFrame(minute, second, frame);
 }
 
@@ -78,15 +77,22 @@ MinuteSecondFrame MinuteSecondFrame::getNextSector() const
 	auto bcdInc = [](uint8_t bcd) -> uint8_t { return (bcd & 0xf) < 9 ? bcd + 1 : (bcd & 0xf0) + 0x10; };
 
 	if (m_frame < 0x74)
+	{
 		return MinuteSecondFrame(m_minute, m_second, bcdInc(m_frame));
+	}
 
 	if (m_second < 0x59)
-		return MinuteSecondFrame(m_minute, bcdInc(m_second), /*m_frame*/0x0);
+	{
+		return MinuteSecondFrame(m_minute, bcdInc(m_second), 0x0);
+	}
 
 	if (m_minute < 0x99)
+	{
 		return MinuteSecondFrame(bcdInc(m_minute), 0x0, 0x0);
+	}
 
-	assert(0, "MSF overflow");
+	assert(("MSF overflow", false));
+	return MinuteSecondFrame(0x0, 0x0, 0x0);
 }
 
 uint32_t MinuteSecondFrame::packToU32BCD() const

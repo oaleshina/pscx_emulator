@@ -56,8 +56,7 @@ uint8_t Fifo::pop()
 template<typename T>
 T CdRom::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 {
-	assert((std::is_same<uint8_t, T>::value), "Unhandled CDROM load");
-
+	assert(("Unhandled CDROM load", (std::is_same<uint8_t, T>::value)));
 	sync(timeKeeper, irqState);
 
 	uint8_t value = 0x0;
@@ -70,8 +69,10 @@ T CdRom::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 	}
 	case 0x1:
 	{
-		if(m_response.isEmpty()) 
+		if (m_response.isEmpty())
+		{
 			LOG("CDROM response FIFO underflow");
+		}
 		value = m_response.pop();
 		break;
 	}
@@ -95,50 +96,77 @@ template uint8_t  CdRom::load<uint8_t >(TimeKeeper&, InterruptState&, uint32_t);
 template<typename T>
 void CdRom::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset, T value)
 {
-	assert((std::is_same<uint8_t, T>::value), "Unhandled CDROM store");
-
+	assert(("Unhandled CDROM store", (std::is_same<uint8_t, T>::value)));
 	sync(timeKeeper, irqState);
+
+	uint8_t valueToStore = static_cast<uint8_t>(value);
 
 	// All writeable registers are 8 bit wide.
 	switch (offset)
 	{
 	case 0x0:
-		setIndex((uint8_t)value);
+	{
+		setIndex(valueToStore);
 		break;
+	}
 	case 0x1:
+	{
 		if (m_index == 0x0)
-			command(timeKeeper, (uint8_t)value);
+		{
+			command(timeKeeper, valueToStore);
+		}
 		else if (m_index == 0x3)
-			m_mixer.m_cdRightToSpuRight = value;
+		{
+			m_mixer.m_cdRightToSpuRight = valueToStore;
+		}
 		break;
+	}
 	case 0x2:
+	{
 		if (m_index == 0x0)
-			pushParam((uint8_t)value);
+		{
+			pushParam(valueToStore);
+		}
 		else if (m_index == 0x1)
-			irqMask((uint8_t)value);
+		{
+			irqMask(valueToStore);
+		}
 		else if (m_index == 0x2)
-			m_mixer.m_cdLeftToSpuLeft = value;
+		{
+			m_mixer.m_cdLeftToSpuLeft = valueToStore;
+		}
 		else if (m_index == 0x3)
-			m_mixer.m_cdRightToSpuLeft = value;
+		{
+			m_mixer.m_cdRightToSpuLeft = valueToStore;
+		}
 		break;
+	}
 	case 0x3:
+	{
 		if (m_index == 0x0)
 		{
-			setConfig(value);
+			setConfig(valueToStore);
 		}
 		else if (m_index == 0x1)
 		{
-			irqAck((uint8_t)value & 0x1f);
-			if (value & 0x40)
+			irqAck(valueToStore & 0x1f);
+			if (valueToStore & 0x40)
+			{
 				m_params.clear();
+			}
 
-			assert((value & 0xa0) == 0x0, "Unhandled CDROM 3.1");
+			assert(("Unhandled CDROM 3.1", (valueToStore & 0xa0) == 0x0));
 		}
 		else if (m_index == 0x2)
-			m_mixer.m_cdLeftToSpuRight = value;
+		{
+			m_mixer.m_cdLeftToSpuRight = valueToStore;
+		}
 		else if (m_index == 0x3)
+		{
 			LOG("CDROM Mixer apply 0x" << std::hex << value);
+		}
 		break;
+	}
 	}
 }
 
@@ -238,11 +266,11 @@ void CdRom::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 
 uint8_t CdRom::readByte()
 {
-	assert(m_rxIndex < m_rxLen, "Unhandled CDROM long read");
+	assert(("Unhandled CDROM long read", m_rxIndex < m_rxLen));
 
 	uint8_t byte = m_rxSector->getDataByte(m_rxOffset + m_rxIndex);
 
-	assert(m_rxActive, "Read byte while !m_rxActive");
+	assert(("Read byte while !m_rxActive", m_rxActive));
 	m_rxIndex += 1;
 	
 	return byte;
@@ -262,7 +290,7 @@ uint32_t CdRom::dmaReadWord()
 void CdRom::doSeek()
 {
 	// Make sure we don't end up in track1's pregap.
-	assert(m_seekTarget >= MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0), "Seek to track 1 pregap");
+	assert(("Seek to track 1 pregap", m_seekTarget >= MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0)));
 
 	m_readPosition = m_seekTarget;
 	m_seekTargetPending = false;
@@ -278,7 +306,7 @@ void CdRom::sectorRead(InterruptState& irqState)
 	LOG("CDROM: read sector at position " << std::hex << m_readPosition.getMinute() << ":" << m_readPosition.getSecond() << ":" << m_readPosition.getFrame());
 
 	XaSector::ResultXaSector resultXaSector = const_cast<Disc*>(getDiscOrDie())->readDataSector(m_readPosition);
-	assert(resultXaSector.getSectorStatus() == XaSector::XaSectorStatus::XA_SECTOR_STATUS_OK, "Couldn't read sector");
+	assert(("Couldn't read sector", resultXaSector.getSectorStatus() == XaSector::XaSectorStatus::XA_SECTOR_STATUS_OK));
 	m_rxSector = resultXaSector.getSectorPtr();
 
 	if (m_readWholeSector)
@@ -331,7 +359,7 @@ bool CdRom::irq() const
 
 void CdRom::triggerIrq(InterruptState& irqState, IrqCode irq)
 {
-	assert(m_irqFlags == 0x0, "Unsupported nested CDROM interrupt");
+	assert(("Unsupported nested CDROM interrupt", m_irqFlags == 0x0));
 
 	bool prevIrq = this->irq();
 	m_irqFlags = (uint8_t)irq;
@@ -354,7 +382,7 @@ void CdRom::irqAck(uint8_t value)
 
 	if (m_irqFlags == 0)
 	{
-		assert(m_commandState == CommandState::COMMAND_STATE_IDLE, "CDROM IRQ acknowledge while controller is busy");
+		assert(("CDROM IRQ acknowledge while controller is busy", m_commandState == CommandState::COMMAND_STATE_IDLE));
 		
 		// Certain commands have a 2nd phase after the first interrupt is acknowledged.
 		auto onAcknowledgeFuncPtr = m_onAcknowledge;
@@ -382,7 +410,7 @@ void CdRom::setConfig(uint8_t config)
 		m_rxIndex = (m_rxIndex & ~7) + ((m_rxIndex & 4) << 1);
 	}
 
-	assert((config & 0x5f) == 0, "CDROM: unhandled config");
+	assert(("CDROM: unhandled config", (config & 0x5f) == 0x0));
 }
 
 void CdRom::irqMask(uint8_t value)
@@ -398,7 +426,7 @@ uint32_t CdRom::getCyclesPerSector()
 
 void CdRom::command(TimeKeeper& timeKeeper, uint8_t cmd)
 {
-	assert(m_commandState == CommandState::COMMAND_STATE_IDLE, "CDROM command while controller is busy");
+	assert(("CDROM command while controller is busy", m_commandState == CommandState::COMMAND_STATE_IDLE));
 
 	m_response.clear();
 
@@ -439,7 +467,7 @@ void CdRom::command(TimeKeeper& timeKeeper, uint8_t cmd)
 		onAcknowledge = &CdRom::cmdTest;
 		break;
 	default:
-		assert(0, "Unhandled CDROM command");
+		assert(("Unhandled CDROM command", false));
 		break;
 	}
 
@@ -489,7 +517,7 @@ CommandState CdRom::cmdGetStat()
 {
 	// If this occurs on the real hardware it should set bit 1 of the result byte
 	// and then put a 2nd byte 0x20 to signal the wrong number of params.
-	assert(m_params.isEmpty(), "Unexpected parmeters for CDROM GetStat command");
+	assert(("Unexpected parmeters for CDROM GetStat command", m_params.isEmpty()));
 
 	Fifo response;
 	response.push(getDriveStatus());
@@ -516,7 +544,7 @@ CommandState CdRom::cmdGetStat()
 
 CommandState CdRom::cmdSetLoc()
 {
-	assert(m_params.len() == 3, "CDROM: bad number of parameters for SetLoc");
+	assert(("CDROM: bad number of parameters for SetLoc", m_params.len() == 3));
 
 	// Parameters are in the BCD.
 	uint8_t minute = m_params.pop();
@@ -546,7 +574,7 @@ CommandState CdRom::cmdSetLoc()
 
 CommandState CdRom::cmdReadN()
 {
-	assert(m_readState == ReadState::READ_STATE_IDLE, "CDROM read command while we're already reading");
+	assert(("CDROM read command while we're already reading", m_readState == ReadState::READ_STATE_IDLE));
 	if (m_seekTargetPending) doSeek();
 	m_helperReading.m_delay = getCyclesPerSector();
 	m_readState = ReadState::READ_STATE_READING;
@@ -560,7 +588,7 @@ CommandState CdRom::cmdReadN()
 
 CommandState CdRom::cmdPause()
 {
-	assert(m_readState != ReadState::READ_STATE_IDLE, "Pause when we're not reading");
+	assert(("Pause when we're not reading", m_readState != ReadState::READ_STATE_IDLE));
 
 	m_onAcknowledge = &CdRom::ackPause;
 
@@ -594,14 +622,14 @@ CommandState CdRom::cmdDemute()
 
 CommandState CdRom::cmdSetMode()
 {
-	assert(m_params.len() == 1, "CDROM: bad number of parameters for SetMode");
+	assert(("CDROM: bad number of parameters for SetMode", m_params.len() == 1));
 
 	uint8_t mode = m_params.pop();
 
 	m_doubleSpeed = mode & 0x80;
 	m_readWholeSector = mode & 0x20;
 
-	assert((mode & 0x7f) == 0x0, "CDROM: unhandled mode");
+	assert(("CDROM: unhandled mode", (mode & 0x7f) == 0x0));
 
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 22'000;
@@ -662,15 +690,15 @@ CommandState CdRom::cmdReadToc()
 
 CommandState CdRom::cmdTest()
 {
-	assert(m_params.len() == 0x1, "Unexpected number of parameters for CDROM test command");
+	assert(("Unexpected number of parameters for CDROM test command", m_params.len() == 0x1));
 
-	switch (m_params.pop())
+	if (m_params.pop() == 0x20)
 	{
-	case 0x20:
 		return testVersion();
-	default:
-		assert(0, "Unhandled CDROM test subcommand");
 	}
+
+	assert(("Unhandled CDROM test subcommand", false));
+	return CommandState::COMMAND_STATE_INVALID;
 }
 
 CommandState CdRom::testVersion()
@@ -722,14 +750,20 @@ CommandState CdRom::ackGetId()
 		switch (m_disc->getRegion())
 		{
 		case Region::REGION_JAPAN:
+		{
 			regionSymbol = 'I';
 			break;
+		}
 		case Region::REGION_NORTH_AMERICA:
+		{
 			regionSymbol = 'A';
 			break;
+		}
 		case Region::REGION_EUROPE:
+		{
 			regionSymbol = 'E';
 			break;
+		}
 		}
 
 		Fifo response = Fifo::fromBytes({
@@ -754,10 +788,8 @@ CommandState CdRom::ackGetId()
 		m_helperRxPending.m_response = response;
 		return CommandState::COMMAND_STATE_RX_PENDING;
 	}
-	else
-	{
-		assert(0, "ackGetId: Unreachable!");
-	}
+	assert(("ackGetId: Unreachable!", false));
+	return CommandState::COMMAND_STATE_INVALID;
 }
 
 CommandState CdRom::ackReadToc()
@@ -807,6 +839,8 @@ CommandState CdRom::ackInit()
 void CdRom::pushParam(uint8_t param)
 {
 	if (m_params.isFull())
+	{
 		LOG("CDROM parameter FIFO overflow");
+	}
 	m_params.push(param);
 }

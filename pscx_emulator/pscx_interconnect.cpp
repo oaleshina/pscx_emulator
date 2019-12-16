@@ -24,52 +24,71 @@ template<typename T>
 Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 {
 	// timeKeeper.tick(5);
-
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
 	uint32_t offset = 0;
 	if (BIOS.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(m_bios->load<T>(offset));
+	}
 
 	if (RAM.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(m_ram->load<T>(offset));
+	}
 
 	if (SCRATCH_PAD.contains(targetPeripheralAddress, offset))
 	{
-		assert(addr <= 0xa0000000, "ScratchPad access through uncached memory");
+		assert(("ScratchPad access through uncached memory", addr <= 0xa0000000));
 		return Instruction(m_scratchPad->load<T>(offset));
 	}
 
 	if (MEM_CONTROL.contains(targetPeripheralAddress, offset))
 	{
-		assert((std::is_same<uint32_t, T>::value), "Unhandled MEM_CONTROL access");
+		assert(("Unhandled MEM_CONTROL access", (std::is_same<uint32_t, T>::value)));
 		return Instruction(m_memControl[offset >> 2]);
 	}
 
 	if (SPU.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(m_spu->load<T>(offset));
+	}
 
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(m_ramSize);
+	}
 
 	if (PAD_MEMCARD.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(m_padMemCard->load<T>(timeKeeper, *m_irqState, offset));
+	}
 
 	if (EXPANSION_1.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(~0);
+	}
 
 	if (EXPANSION_2.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
+	}
 
 	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
 	{
 		uint32_t irqControlValue = 0x0;
 		if (offset == 0x0)
+		{
 			irqControlValue = m_irqState->getInterruptStatus();
+		}
 		else if (offset = 0x4)
+		{
 			irqControlValue = m_irqState->getInterruptMask();
+		}
 		else
-			assert(0, "Unhandled IRQ load");
+		{
+			assert(("Unhandled IRQ load", false));
+		}
 		return Instruction(irqControlValue);
 	}
 
@@ -115,25 +134,27 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 	uint32_t offset = 0;
 	if (MEM_CONTROL.contains(targetPeripheralAddress, offset))
 	{
-		assert((std::is_same<uint32_t, T>::value), "Unhandled MEM_CONTROL access");
+		assert(("Unhandled MEM_CONTROL access", (std::is_same<uint32_t, T>::value)));
 
 		switch (offset)
 		{
 		case 0:
 		{
 			// Expansion 1 base address
-			assert(value == 0x1f000000, "Bad expansion 1 base address");
+			assert(("Bad expansion 1 base address", value == 0x1f000000));
 			break;
 		}
 		case 4:
 		{
 			// Expansion 2 base address
-			assert(value == 0x1f802000, "Bad expansion 2 base address");
+			assert(("Bad expansion 2 base address", value == 0x1f802000));
 			break;
 		}
 		default:
+		{
 			LOG("Unhandled write to MEM_CONTROL register");
 			return;
+		}
 		}
 
 		m_memControl[offset >> 2] = value;
@@ -148,14 +169,14 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (SCRATCH_PAD.contains(targetPeripheralAddress, offset))
 	{
-		assert(addr <= 0xa0000000, "ScratchPad access through uncached memory");
+		assert(("ScratchPad access through uncached memory", addr <= 0xa0000000));
 		m_scratchPad->store<T>(offset, value);
 		return;
 	}
 
 	if (RAM_SIZE.contains(targetPeripheralAddress, offset))
 	{
-		assert((std::is_same<uint32_t, T>::value), "Unhandled RAM_SIZE access");
+		assert(("Unhandled RAM_SIZE access", (std::is_same<uint32_t, T>::value)));
 		m_ramSize = value;
 		return;
 	}
@@ -168,7 +189,7 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 
 	if (CACHE_CONTROL.contains(targetPeripheralAddress, offset))
 	{
-		assert((std::is_same<uint32_t, T>::value), "Unhandled cache control access");
+		assert(("Unhandled cache control access", (std::is_same<uint32_t, T>::value)));
 		*m_cacheControl = CacheControl(value);
 		return;
 	}
@@ -176,11 +197,17 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
 	{
 		if (offset == 0x0)
+		{
 			m_irqState->acknowledgeInterrupts(value);
+		}
 		else if (offset == 0x4)
+		{
 			m_irqState->setInterruptMask(value);
+		}
 		else
-			assert(0, "Unhandled IRQ store");
+		{
+			assert(("Unhandled IRQ store", false));
+		}
 		return;
 	}
 
@@ -236,7 +263,7 @@ template void Interconnect::store<uint8_t> (TimeKeeper&, uint32_t, uint8_t );
 template<typename T>
 T Interconnect::getDmaRegister(uint32_t offset) const
 {
-	assert((std::is_same<uint32_t, T>::value), "Unhandled DMA load");
+	assert(("Unhandled DMA load", (std::is_same<uint32_t, T>::value)));
 
 	uint32_t major = (offset & 0x70) >> 4;
 	uint32_t minor = offset & 0xf;
@@ -246,32 +273,38 @@ T Interconnect::getDmaRegister(uint32_t offset) const
 	{
 		const Channel& channel = m_dma->getDmaChannelRegister((Port)major);
 		if (minor == 0x0)
+		{
 			return channel.getBaseAddress();
+		}
 		else if (minor == 0x4)
+		{
 			return channel.getBlockControlRegister();
+		}
 		else if (minor == 0x8)
+		{
 			return channel.getDmaChannelControlRegister();
+		}
 		else
-			assert(0, "Unhandled DMA read");
+		{
+			assert(("Unhandled DMA read", false));
+		}
 	}
 	// Common DMA registers
 	else if (major == 0x7)
 	{
 		if (minor == 0x0)
+		{
 			return m_dma->getDmaControlRegister();
+		}
 		else if (minor == 0x4)
+		{
 			return m_dma->getDmaInterruptRegister();
+		}
 		else
-			assert(0, "Unhandled DMA read");
+		{
+			assert(("Unhandled DMA read", false));
+		}
 	}
-
-	/*switch(offset)
-	{
-	case 0x70:
-		return m_dma.getDmaControlRegister();
-	case 0x74:
-		return m_dma.getDmaInterruptRegister();
-	}*/
 
 	LOG("Unhandled DMA read at 0x" << std::hex << offset);
 	return ~0;
@@ -280,7 +313,7 @@ T Interconnect::getDmaRegister(uint32_t offset) const
 template<typename T>
 void Interconnect::setDmaRegister(uint32_t offset, T value)
 {
-	assert((std::is_same<uint32_t, T>::value), "Unhandled DMA store");
+	assert(("Unhandled DMA store", (std::is_same<uint32_t, T>::value)));
 
 	uint32_t major = (offset & 0x70) >> 4;
 	uint32_t minor = offset & 0xf;
@@ -292,40 +325,48 @@ void Interconnect::setDmaRegister(uint32_t offset, T value)
 	{
 		Channel& channel = m_dma->getDmaChannelRegisterMutable((Port)major);
 		if (minor == 0x0)
+		{
 			channel.setBaseAddress(value);
+		}
 		else if (minor == 0x4)
+		{
 			channel.setBlockControlRegister(value);
+		}
 		else if (minor == 0x8)
+		{
 			channel.setDmaChannelControlRegister(value);
+		}
 		else
-			assert(0, "Unhandled DMA write");
+		{
+			assert(("Unhandled DMA write", false));
+		}
 		
 		if (channel.isActiveChannel())
+		{
 			activePort = (Port)major;
+		}
 	}
 	// Common DMA registers
 	else if (major == 0x7)
 	{
 		if (minor == 0x0)
+		{
 			m_dma->setDmaControlRegister(value);
+		}
 		else if (minor == 0x4)
+		{
 			m_dma->setDmaInterruptRegister(value, *m_irqState);
+		}
 		else
-			assert(0, "Unhandled DMA write");
+		{
+			assert(("Unhandled DMA write", false));
+		}
 	}
 
-	/*switch(offset)
-	{
-	case 0x70:
-		m_dma.setDmaControlRegister(value);
-		return;
-	case 0x74:
-		m_dma.setDmaInterruptRegister(value);
-		return;
-	}*/
-
 	if (activePort != (Port)-1)
+	{
 		doDma(activePort);
+	}
 
 	LOG("Unhandled DMA write 0x" << std::hex << offset << " 0x" << value);
 }
@@ -351,14 +392,20 @@ void Interconnect::doDmaBlock(Port port)
 	Channel& channel = m_dma->getDmaChannelRegisterMutable(port);
 
 	uint32_t increment = 0;
-	if (channel.getStep() == Step::STEP_INCREMENT) increment = 4;
-	else if (channel.getStep() == Step::STEP_DECREMENT) increment = (uint32_t)-4;
+	if (channel.getStep() == Step::STEP_INCREMENT)
+	{
+		increment = 4;
+	}
+	else if (channel.getStep() == Step::STEP_DECREMENT)
+	{
+		increment = (uint32_t)-4;
+	}
 
 	uint32_t addr = channel.getBaseAddress();
 
 	// Transfer size in words.
 	// Shouldn't happen since we shouldn't reach this code in linked list mode.
-	assert(channel.getSync() != Sync::SYNC_LINKED_LIST, "Couldn't figure out DMA block transfer size");
+	assert(("Couldn't figure out DMA block transfer size", channel.getSync() != Sync::SYNC_LINKED_LIST));
 
 	uint32_t transferSize = channel.getTransferSize();
 	while (transferSize > 0)
@@ -388,8 +435,7 @@ void Interconnect::doDmaBlock(Port port)
 			}
 			else
 			{
-				//std::cout << port << std::endl;
-				assert(0, "Unhandled DMA destination port");
+				assert(("Unhandled DMA destination port", false));
 			}
 			break;
 		}
@@ -400,9 +446,13 @@ void Interconnect::doDmaBlock(Port port)
 			if (port == Port::PORT_OTC)
 			{
 				if (transferSize == 1)
+				{
 					srcWord = 0xffffff; // Last entry contains the end of the table marker
+				}
 				else
+				{
 					srcWord = (addr - 4) & 0x1fffff; // Pointer to the previous entry
+				}
 			}
 			else if (port == Port::PORT_GPU)
 			{
@@ -415,7 +465,7 @@ void Interconnect::doDmaBlock(Port port)
 			}
 			else
 			{
-				assert(0, "Unhandled DMA source port");
+				assert(("Unhandled DMA source port", false));
 			}
 			m_ram->store<uint32_t>(currentAddr, srcWord);
 		}
@@ -431,8 +481,8 @@ void Interconnect::doDmaLinkedList(Port port)
 
 	uint32_t addr = channel.getBaseAddress() & 0x1ffffc;
 
-	assert(channel.getDirection() != Direction::DIRECTION_TO_RAM, "Invalid DMA direction for linked list mode");
-	assert(port == Port::PORT_GPU, "Attempted linked list DMA on port");
+	assert(("Invalid DMA direction for linked list mode", channel.getDirection() != Direction::DIRECTION_TO_RAM));
+	assert(("Attempted linked list DMA on port", port == Port::PORT_GPU));
 
 	while (true)
 	{
@@ -466,12 +516,18 @@ void Interconnect::doDmaLinkedList(Port port)
 void Interconnect::sync(TimeKeeper& timeKeeper)
 {
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_GPU))
+	{
 		m_gpu->sync(timeKeeper, *m_irqState);
+	}
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_PAD_MEMCARD))
+	{
 		m_padMemCard->sync(timeKeeper, *m_irqState);
+	}
 	m_timers->sync(timeKeeper, *m_irqState);
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_CDROM))
+	{
 		m_cdRom->sync(timeKeeper, *m_irqState);
+	}
 }
 
 CacheControl Interconnect::getCacheControl() const
@@ -486,10 +542,14 @@ Instruction Interconnect::loadInstruction(uint32_t pc)
 
 	uint32_t offset = 0;
 	if (RAM.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(m_ram->load<T>(offset));
+	}
 
 	if (BIOS.contains(targetPeripheralAddress, offset))
+	{
 		return Instruction(m_bios->load<T>(offset));
+	}
 
 	LOG("Unhandled instruction load at address 0x" << std::hex << pc);
 	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);

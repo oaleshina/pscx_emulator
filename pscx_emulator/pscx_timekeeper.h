@@ -93,7 +93,7 @@ struct FracCycles
 	static FracCycles fromF32(float value)
 	{
 		float precision = (float)(1 << FracCycles::fracBits());
-		return (FracCycles)FracCycles(value * precision);
+		return (FracCycles)FracCycles(static_cast<Cycles>(value * precision));
 	}
 
 	static FracCycles fromCycles(Cycles value)
