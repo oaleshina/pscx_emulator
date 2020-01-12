@@ -37,13 +37,19 @@ static const uint8_t UNSIGNED_NEWTOWN_RAPHSON_TABLE[] = {
 	0x00,
 };
 
-uint32_t calculateLeadingZeros(uint16_t value)
+template<typename T>
+uint32_t calculateLeadingZeros(T value)
 {
-	uint16_t inputValue = value;
+	T inputValue = value;
 
 	// Keep shifting x by one until leftmost bit 
 	// does not become 1.
 	uint32_t totalBits = sizeof(inputValue) * 8;
+	if (inputValue == 0x0)
+	{
+		return totalBits;
+	}
+
 	uint32_t numLeadingZeros = 0x0;
 	while (!(inputValue & (1 << (totalBits - 1))))
 	{
@@ -53,6 +59,8 @@ uint32_t calculateLeadingZeros(uint16_t value)
 
 	return numLeadingZeros;
 }
+
+template uint32_t calculateLeadingZeros<uint32_t>(uint32_t value);
 
 uint32_t divide(uint16_t numerator, uint16_t divisor)
 {

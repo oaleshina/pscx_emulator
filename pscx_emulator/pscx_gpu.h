@@ -266,7 +266,7 @@ struct Gpu
 	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// Predict when the next "forced" sync should take place
-	void predictNextSync(TimeKeeper timeKeeper);
+	void predictNextSync(TimeKeeper& timeKeeper);
 
 	// Return true if we're currently in the video blanking period
 	bool inVblank() const;

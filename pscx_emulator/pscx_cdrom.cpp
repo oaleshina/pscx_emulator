@@ -9,7 +9,9 @@ Fifo Fifo::fromBytes(const std::vector<uint8_t>& bytes)
 {
 	Fifo fifo;
 	for (auto byte : bytes)
+	{
 		fifo.push(byte);
+	}
 	return fifo;
 }
 
@@ -80,9 +82,13 @@ T CdRom::load(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t offset)
 	{
 		// IRQ mask/flags have the 3 MSB set when read.
 		if (m_index == 0x0)
+		{
 			value = m_irqMask | 0xe0;
+		}
 		else if (m_index == 0x1)
+		{
 			value = m_irqFlags | 0xe0;
+		}
 		break;
 	}
 	}
@@ -123,9 +129,11 @@ void CdRom::store(TimeKeeper& timeKeeper, InterruptState& irqState, uint32_t off
 	}
 	case 0x2:
 	{
+		//std::cout << (uint32_t)m_index << " pushParam= " << (uint32_t)valueToStore << std::endl;
 		if (m_index == 0x0)
 		{
 			pushParam(valueToStore);
+			//std::cout << "pushParam= " << (uint32_t)valueToStore << std::endl;
 		}
 		else if (m_index == 0x1)
 		{
@@ -293,6 +301,7 @@ void CdRom::doSeek()
 	assert(("Seek to track 1 pregap", m_seekTarget >= MinuteSecondFrame::fromBCD(0x0, 0x2, 0x0)));
 
 	m_readPosition = m_seekTarget;
+	//std::cout << "seekTarget= " << (uint32_t)m_seekTarget.getMinute() << " " << (uint32_t)m_seekTarget.getSecond() << " " << (uint32_t)m_seekTarget.getFrame() << std::endl;
 	m_seekTargetPending = false;
 }
 
@@ -304,6 +313,7 @@ const Disc* CdRom::getDiscOrDie()
 void CdRom::sectorRead(InterruptState& irqState)
 {
 	LOG("CDROM: read sector at position " << std::hex << m_readPosition.getMinute() << ":" << m_readPosition.getSecond() << ":" << m_readPosition.getFrame());
+	//std::cout << "readPosition before= " << (uint32_t)m_readPosition.getMinute() << " " << (uint32_t)m_readPosition.getSecond() << " " << (uint32_t)m_readPosition.getFrame() << std::endl;
 
 	XaSector::ResultXaSector resultXaSector = const_cast<Disc*>(getDiscOrDie())->readDataSector(m_readPosition);
 	assert(("Couldn't read sector", resultXaSector.getSectorStatus() == XaSector::XaSectorStatus::XA_SECTOR_STATUS_OK));
@@ -332,6 +342,7 @@ void CdRom::sectorRead(InterruptState& irqState)
 
 	// Move on to the next segment.
 	m_readPosition = m_readPosition.getNextSector();
+	//std::cout << "readPosition= " << (uint32_t)m_readPosition.getMinute() << " " << (uint32_t)m_readPosition.getSecond() << " " << (uint32_t)m_readPosition.getFrame() << std::endl;
 }
 
 uint8_t CdRom::getStatus()
@@ -341,13 +352,15 @@ uint8_t CdRom::getStatus()
 	status |= 0 << 2;
 	status |= ((uint8_t)m_params.isEmpty()) << 3;
 	status |= ((uint8_t)(!m_params.isFull())) << 4;
-	status |= ((uint8_t)(!m_params.isEmpty())) << 5;
+	status |= ((uint8_t)(!m_response.isEmpty())) << 5;
 
 	bool dataAvailable = m_rxIndex < m_rxLen;
 	status |= (uint8_t)dataAvailable << 6;
 	// "Busy" flag
 	if (m_commandState == CommandState::COMMAND_STATE_RX_PENDING)
+	{
 		status |= 1 << 7;
+	}
 
 	return status;
 }
@@ -434,41 +447,65 @@ void CdRom::command(TimeKeeper& timeKeeper, uint8_t cmd)
 	switch (cmd)
 	{
 	case 0x01:
+	{
 		onAcknowledge = &CdRom::cmdGetStat;
 		break;
+	}
 	case 0x02:
+	{
 		onAcknowledge = &CdRom::cmdSetLoc;
 		break;
+	}
 	case 0x06:
+	{
 		onAcknowledge = &CdRom::cmdReadN;
 		break;
+	}
 	case 0x09:
+	{
 		onAcknowledge = &CdRom::cmdPause;
 		break;
+	}
 	case 0x0a:
+	{
 		onAcknowledge = &CdRom::cmdInit;
 		break;
+	}
 	case 0x0c:
+	{
 		onAcknowledge = &CdRom::cmdDemute;
 		break;
+	}
 	case 0x0e:
+	{
 		onAcknowledge = &CdRom::cmdSetMode;
 		break;
+	}
 	case 0x15:
+	{
 		onAcknowledge = &CdRom::cmdSeekl;
 		break;
+	}
 	case 0x1a:
+	{
 		onAcknowledge = &CdRom::cmdGetId;
 		break;
+	}
 	case 0x1e:
+	{
 		onAcknowledge = &CdRom::cmdReadToc;
 		break;
+	}
 	case 0x19:
+	{
 		onAcknowledge = &CdRom::cmdTest;
 		break;
+	}
 	default:
+	{
 		assert(("Unhandled CDROM command", false));
 		break;
+	}
 	}
 
 	if (m_irqFlags == 0)
@@ -551,21 +588,22 @@ CommandState CdRom::cmdSetLoc()
 	uint8_t second = m_params.pop();
 	uint8_t frame  = m_params.pop();
 
+	//std::cout << "cmdSetLoc= " << (uint32_t)minute << " " << (uint32_t)second << " " << (uint32_t)frame << std::endl;
 	m_seekTarget = MinuteSecondFrame::fromBCD(minute, second, frame);
-	m_seekTargetPending = true;
+	//std::cout << "cmdSetLoc= " << (uint32_t)m_seekTarget.getMinute() << " " << (uint32_t)m_seekTarget.getSecond() << " " << (uint32_t)m_seekTarget.getFrame() << std::endl;
 	m_seekTargetPending = true;
 
 	if (m_disc)
 	{
 		m_helperRxPending.m_rxDelay = 35'000;
-		m_helperRxPending.m_irqDelay = 35'000 + 5399;
+		m_helperRxPending.m_irqDelay = 35'000; //+ 5399;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 		m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	}
 	else
 	{
 		m_helperRxPending.m_rxDelay = 25'000;
-		m_helperRxPending.m_irqDelay = 25'000 + 6763;
+		m_helperRxPending.m_irqDelay = 25'000; //+ 6763;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_ERROR;
 		m_helperRxPending.m_response = Fifo::fromBytes({ 0x11, 0x80 });
 	}
@@ -575,12 +613,15 @@ CommandState CdRom::cmdSetLoc()
 CommandState CdRom::cmdReadN()
 {
 	assert(("CDROM read command while we're already reading", m_readState == ReadState::READ_STATE_IDLE));
-	if (m_seekTargetPending) doSeek();
+	if (m_seekTargetPending)
+	{
+		doSeek();
+	}
 	m_helperReading.m_delay = getCyclesPerSector();
 	m_readState = ReadState::READ_STATE_READING;
 
 	m_helperRxPending.m_rxDelay = 28'000;
-	m_helperRxPending.m_irqDelay = 28'000 + 5401;
+	m_helperRxPending.m_irqDelay = 28'000; //+ 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -590,10 +631,12 @@ CommandState CdRom::cmdPause()
 {
 	assert(("Pause when we're not reading", m_readState != ReadState::READ_STATE_IDLE));
 
+	std::cout << "Pause when we're not reading" << std::endl;
+
 	m_onAcknowledge = &CdRom::ackPause;
 
 	m_helperRxPending.m_rxDelay = 25'000;
-	m_helperRxPending.m_irqDelay = 25'000 + 5393;
+	m_helperRxPending.m_irqDelay = 25'000; //+ 5393;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -604,7 +647,7 @@ CommandState CdRom::cmdInit()
 	m_onAcknowledge = &CdRom::ackInit;
 
 	m_helperRxPending.m_rxDelay = 58'000;
-	m_helperRxPending.m_irqDelay = 58'000 + 5401;
+	m_helperRxPending.m_irqDelay = 58'000; //+ 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -614,7 +657,7 @@ CommandState CdRom::cmdDemute()
 {
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 32'000;
-	m_helperRxPending.m_irqDelay = 32'000 + 5401;
+	m_helperRxPending.m_irqDelay = 32'000; //+ 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -629,11 +672,11 @@ CommandState CdRom::cmdSetMode()
 	m_doubleSpeed = mode & 0x80;
 	m_readWholeSector = mode & 0x20;
 
-	assert(("CDROM: unhandled mode", (mode & 0x7f) == 0x0));
+	assert(("CDROM: unhandled mode", (mode & 0x5f) == 0x0));
 
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 22'000;
-	m_helperRxPending.m_irqDelay = 22'000 + 5391;
+	m_helperRxPending.m_irqDelay = 22'000; //+ 5391;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -645,7 +688,7 @@ CommandState CdRom::cmdSeekl()
 	m_onAcknowledge = &CdRom::ackSeekl;
 
 	m_helperRxPending.m_rxDelay = 35'000;
-	m_helperRxPending.m_irqDelay = 35'000 + 5401;
+	m_helperRxPending.m_irqDelay = 35'000; //+ 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -662,7 +705,7 @@ CommandState CdRom::cmdGetId()
 
 		// First response: status byte
 		m_helperRxPending.m_rxDelay = 26'000;
-		m_helperRxPending.m_irqDelay = 26'000 + 5401;
+		m_helperRxPending.m_irqDelay = 26'000; //+ 5401;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 		m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	}
@@ -670,7 +713,7 @@ CommandState CdRom::cmdGetId()
 	{
 		// Pretend the shell is open.
 		m_helperRxPending.m_rxDelay = 20'000;
-		m_helperRxPending.m_irqDelay = 20'000 + 6776;
+		m_helperRxPending.m_irqDelay = 20'000; //+ 6776;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_ERROR;
 		m_helperRxPending.m_response = Fifo::fromBytes({ 0x11, 0x80 });
 	}
@@ -682,7 +725,7 @@ CommandState CdRom::cmdReadToc()
 	m_onAcknowledge = &CdRom::ackReadToc;
 
 	m_helperRxPending.m_rxDelay = 45'000;
-	m_helperRxPending.m_irqDelay = 45'000 + 5401;
+	m_helperRxPending.m_irqDelay = 45'000; //+ 5401;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_OK;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -736,7 +779,7 @@ CommandState CdRom::ackSeekl()
 	// to physically move the head.
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 1'000'000;
-	m_helperRxPending.m_irqDelay = 1'000'000;// +1859;
+	m_helperRxPending.m_irqDelay = 1'000'000; //+ 1859;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;
@@ -782,8 +825,8 @@ CommandState CdRom::ackGetId()
 			});
 
 		// Fixme: irq delay.
-		m_helperRxPending.m_rxDelay = 7'336;
-		m_helperRxPending.m_irqDelay = 7'336;// +12'376;
+		m_helperRxPending.m_rxDelay = 7336;
+		m_helperRxPending.m_irqDelay = 7336; //+ 12376;
 		m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 		m_helperRxPending.m_response = response;
 		return CommandState::COMMAND_STATE_RX_PENDING;
@@ -796,7 +839,9 @@ CommandState CdRom::ackReadToc()
 {
 	uint32_t rxDelay = 11'000;
 	if (m_disc)
+	{
 		rxDelay = 16'000'000;
+	}
 
 	m_readState = ReadState::READ_STATE_IDLE;
 	
@@ -830,7 +875,7 @@ CommandState CdRom::ackInit()
 
 	// Fixme: irq delay.
 	m_helperRxPending.m_rxDelay = 2'000'000;
-	m_helperRxPending.m_irqDelay = 2'000'000 + 1870;
+	m_helperRxPending.m_irqDelay = 2'000'000; //+ 1870;
 	m_helperRxPending.m_irqCode = IrqCode::IRQ_CODE_DONE;
 	m_helperRxPending.m_response = Fifo::fromBytes({ getDriveStatus() });
 	return CommandState::COMMAND_STATE_RX_PENDING;

@@ -29,8 +29,11 @@ XaSector::ResultXaSector XaSector::validateMode1_2(const MinuteSecondFrame& minu
 	}
 
 	// Check that the expected MSF matches the one we have in the header.
+	//if (getMinuteSecondFrame() != MinuteSecondFrame::fromBCD(minuteSecondFrame.getMinute(), minuteSecondFrame.getSecond(), minuteSecondFrame.getFrame()))
 	if (getMinuteSecondFrame() != minuteSecondFrame)
+	{
 		return ResultXaSector(nullptr, XaSectorStatus::XA_SECTOR_STATUS_INVALID_DATA);
+	}
 
 	uint8_t mode = m_raw[15];
 	switch (mode)

@@ -1,5 +1,6 @@
 #include "pscx_timekeeper.h"
 #include <cstdlib>
+#include <iostream>
 
 // ********************** TimeSheet implementation **********************
 Cycles TimeSheet::sync(Cycles now)
@@ -41,14 +42,18 @@ void TimeKeeper::setNextSyncDelta(Peripheral who, Cycles delta)
 	m_timesheets[who].setNextSync(date);
 
 	if (date < m_nextSync)
+	{
 		m_nextSync = date;
+	}
 }
 
 void TimeKeeper::setNextSyncDeltaIfCloser(Peripheral who, Cycles delta)
 {
 	Cycles date = m_now + delta;
 	if (m_timesheets[who].getNextSync() > date)
+	{
 		m_timesheets[who].setNextSync(date);
+	}
 }
 
 void TimeKeeper::noSyncNeeded(Peripheral who)
@@ -74,6 +79,10 @@ void TimeKeeper::updateSyncPending()
 	for (size_t i = 0; i < _countof(m_timesheets); ++i)
 	{
 		Cycles nextSync = m_timesheets[i].getNextSync();
-		if (minNextSync > nextSync) minNextSync = nextSync;
+		if (minNextSync > nextSync)
+		{
+			minNextSync = nextSync;
+		}
 	}
+	m_nextSync = minNextSync;
 }

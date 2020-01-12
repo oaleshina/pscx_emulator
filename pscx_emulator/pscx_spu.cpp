@@ -218,7 +218,6 @@ void Spu::setControl(uint16_t value)
 	assert(("Unhandled SPU control", (value & 0x3f4a) == 0x0));
 }
 
-
 void Spu::setTransferControl(uint16_t value)
 {
 	assert(("Unhandled SPU RAM access pattern", value == 0x4));

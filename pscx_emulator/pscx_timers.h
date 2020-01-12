@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #include "pscx_common.h"
 #include "pscx_timekeeper.h"
 #include "pscx_interrupts.h"
@@ -45,11 +47,7 @@ struct ClockSource
 
 	static ClockSource fromField(uint16_t field)
 	{
-		if (field & ~3)
-		{
-			LOG("Invalid clock source: 0x" << std::hex << field);
-			ClockSource(~0);
-		}
+		assert(("Invalid clock source", !(field & ~3)));
 		return ClockSource((uint8_t)field);
 	}
 

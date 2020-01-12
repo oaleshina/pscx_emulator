@@ -23,7 +23,7 @@ Interconnect::Interconnect(Bios bios, HardwareType hardwareType, const Disc* dis
 template<typename T>
 Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 {
-	// timeKeeper.tick(5);
+	//timeKeeper.tick(5);
 	uint32_t targetPeripheralAddress = maskRegion(addr);
 
 	uint32_t offset = 0;
@@ -152,7 +152,7 @@ void Interconnect::store(TimeKeeper& timeKeeper, uint32_t addr, T value)
 		}
 		default:
 		{
-			LOG("Unhandled write to MEM_CONTROL register");
+			std::cout << "Unhandled write to MEM_CONTROL register " << std::hex << value << std::endl;
 			return;
 		}
 		}

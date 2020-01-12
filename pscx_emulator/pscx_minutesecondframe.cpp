@@ -58,6 +58,8 @@ MinuteSecondFrame MinuteSecondFrame::fromBCD(uint8_t minute, uint8_t second, uin
 	// There are only 75 frames per second and 60 seconds per minute.
 	assert(("Invalid MSF", !(second >= 0x60 || frame >= 0x75)));
 	return MinuteSecondFrame(minute, second, frame);
+	//auto fromBCD = [](uint8_t bcd) -> uint8_t { return (bcd >> 4) * 10 + (bcd & 0xf); };
+	//return MinuteSecondFrame(fromBCD(minute), fromBCD(second), fromBCD(frame));
 }
 
 uint32_t MinuteSecondFrame::getSectorIndex() const

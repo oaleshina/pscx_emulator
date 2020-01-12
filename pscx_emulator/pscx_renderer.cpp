@@ -33,7 +33,7 @@ Renderer::Renderer()
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
 	m_framebufferXResolution = 1024;
-	m_framebufferYResolution = 768;
+	m_framebufferYResolution = 512;
 
 	m_window = SDL_CreateWindow("PSX", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, m_framebufferXResolution, m_framebufferYResolution, SDL_WINDOW_OPENGL);
 
@@ -43,7 +43,7 @@ Renderer::Renderer()
 
 	SDL_GL_MakeCurrent(m_window, m_glContext);
 	
-	//glViewport(0, 0, 1024, 512);
+	//glViewport(0, 0, 320, 240);
 
 	// Clear the window
 	glClearColor(0, 0, 0, 1);
@@ -220,8 +220,8 @@ void Renderer::setDrawingArea(uint16_t left, uint16_t top, uint16_t right, uint1
 	GLint leftCoordinate = ((GLint)left * (GLint)m_framebufferXResolution) / 1024;
 	GLint rightCoordinate = ((GLint)right * (GLint)m_framebufferXResolution) / 1024;
 
-	GLint topCoordinate = ((GLint)top * (GLint)m_framebufferYResolution) / 768;
-	GLint bottomCoordinate = ((GLint)bottom * (GLint)m_framebufferYResolution) / 768;
+	GLint topCoordinate = ((GLint)top * (GLint)m_framebufferYResolution) / 512;
+	GLint bottomCoordinate = ((GLint)bottom * (GLint)m_framebufferYResolution) / 512;
 
 	// Width and height are inclusive
 	GLint width = rightCoordinate - leftCoordinate + 1;
@@ -263,7 +263,6 @@ void Renderer::draw()
 
 		// Reset the buffers
 		m_numOfVertices = 0x0;
-		//std::cout << "Here\n";
 	}
 }
 

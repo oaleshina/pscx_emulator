@@ -9,7 +9,9 @@ std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
 	// average line length recorded by the timer1 using the
 	// "hsync" clock source.
 	if (m_vmode == VMode::VMODE_NTSC)
+	{
 		return std::make_pair(3412, 263);
+	}
 	return std::make_pair(3404, 314); // VMode::Pal
 }
 
@@ -19,7 +21,9 @@ FracCycles Gpu::gpuToCpuClockRatio() const
 	// GPU clock in Hz
 	uint32_t gpuClock = 53'200'000; // HardwareType::HARDWARE_TYPE_PAL
 	if (m_hardwareType == HardwareType::HARDWARE_TYPE_NTSC)
+	{
 		gpuClock = 53'690'000;
+	}
 
 	// Clock ratio shifted 16 bits to the left
 	return FracCycles::fromF32(gpuClock / (float)CPU_FREQ_HZ);
@@ -124,7 +128,7 @@ void Gpu::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	predictNextSync(timeKeeper);
 }
 
-void Gpu::predictNextSync(TimeKeeper timeKeeper)
+void Gpu::predictNextSync(TimeKeeper& timeKeeper)
 {
 	std::pair<uint16_t, uint16_t> vModeTimings = getVModeTimings();
 
@@ -191,7 +195,9 @@ uint16_t Gpu::displayedVramLine() const
 {
 	uint16_t offset = m_displayLine;
 	if (m_interlaced)
+	{
 		offset = m_displayLine * 2 + (uint16_t)m_field;
+	}
 
 	// The VRAM "wraps around" so in the case of an overflow,
 	// we simply truncate to 9 bits
@@ -374,6 +380,7 @@ void Gpu::gp0(uint32_t value)
 		{
 			commandParameters.gp0WordsRemaining = 5;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoSemiTransparent;
+			std::cout << "gp0QuadMonoSemiTransparent" << std::endl;
 			break;
 		}
 		case 0x2c:
@@ -392,6 +399,7 @@ void Gpu::gp0(uint32_t value)
 		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendSemiTransparent;
+			std::cout << "gp0QuadTextureBlendSemiTransparent" << std::endl;
 			break;
 		}
 		case 0x2f:
@@ -410,6 +418,7 @@ void Gpu::gp0(uint32_t value)
 		{
 			commandParameters.gp0WordsRemaining = 9;
 			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleTextureBlendOpaque;
+			std::cout << "gp0TriangleTextureBlendOpaque" << std::endl;
 			break;
 		}
 		case 0x36:
@@ -909,17 +918,25 @@ void Gpu::gp0DrawMode()
 	switch (textureDepthValue)
 	{
 	case 0:
+	{
 		textureDepth = TextureDepth::TEXTURE_DEPTH_4_BIT;
 		break;
+	}
 	case 1:
+	{
 		textureDepth = TextureDepth::TEXTURE_DEPTH_8_BIT;
 		break;
+	}
 	case 2:
+	{
 		textureDepth = TextureDepth::TEXTURE_DEPTH_15_BIT;
 		break;
+	}
 	default:
+	{
 		LOG("Unhandled texture depth 0x" << std::hex << textureDepthValue);
 		return;
+	}
 	}
 
 	m_textureDepth = textureDepth;
@@ -936,7 +953,7 @@ void Gpu::gp0DrawingAreaTopLeft()
 	m_drawingAreaTop = (value >> 10) & 0x3ff;
 	m_drawingAreaLeft = value & 0x3ff;
 
-	//updateDrawingArea();
+	updateDrawingArea();
 }
 
 void Gpu::gp0DrawingAreaBottomRight()
@@ -945,7 +962,7 @@ void Gpu::gp0DrawingAreaBottomRight()
 	m_drawingAreaBottom = (value >> 10) & 0x3ff;
 	m_drawingAreaRight = value & 0x3ff;
 
-	//updateDrawingArea();
+	updateDrawingArea();
 }
 
 void Gpu::updateDrawingArea()

@@ -37,14 +37,20 @@ Clock ClockSource::clock(Peripheral instance) const
 	switch (instance)
 	{
 	case Peripheral::PERIPHERAL_TIMER0:
+	{
 		clock = lookup[0][m_clockSource];
 		break;
+	}
 	case Peripheral::PERIPHERAL_TIMER1:
+	{
 		clock = lookup[1][m_clockSource];
 		break;
+	}
 	case Peripheral::PERIPHERAL_TIMER2:
+	{
 		clock = lookup[2][m_clockSource];
 		break;
+	}
 	}
 	return clock;
 }
@@ -60,21 +66,29 @@ void Timer::reconfigure(const Gpu& gpu, TimeKeeper& timeKeeper)
 	switch (m_clockSource.clock(m_instance))
 	{
 	case Clock::CLOCK_SOURCE_SYS_CLOCK:
+	{
 		m_period = FracCycles::fromCycles(1);
 		m_phase = FracCycles::fromCycles(0);
 		break;
+	}
 	case Clock::CLOCK_SOURCE_SYS_CLOCK_DIV_8:
+	{
 		m_period = FracCycles::fromCycles(8);
 		m_phase = FracCycles::fromCycles(0);
 		break;
+	}
 	case Clock::CLOCK_SOURCE_GPU_DOT_CLOCK:
+	{
 		m_period = gpu.dotclockPeriod();
 		m_phase = gpu.dotclockPhase();
 		break;
+	}
 	case Clock::CLOCK_SOURCE_GPU_HSYNC:
+	{
 		m_period = gpu.hsyncPeriod();
 		m_phase = gpu.hsyncPhase();
 		break;
+	}
 	}
 
 	predictNextSync(timeKeeper);
@@ -288,21 +302,30 @@ void Timers::store(TimeKeeper& timeKeeper, InterruptState& irqState,
 	switch (offset & 0xf)
 	{
 	case 0:
+	{
 		timer.setCounter(value);
 		break;
+	}
 	case 4:
+	{
 		timer.setMode(value);
 		break;
+	}
 	case 8:
+	{
 		timer.setTarget(value);
 		break;
+	}
 	default:
-		LOG("Unhandled timer register");
-		return;
+	{
+		assert(("Unhandled timer register", false));
+	}
 	}
 
 	if (timer.needsGpu())
+	{
 		gpu.sync(timeKeeper, irqState);
+	}
 
 	timer.reconfigure(gpu, timeKeeper);
 }
@@ -370,9 +393,15 @@ void Timers::videoTimingsChanged(TimeKeeper& timeKeeper, InterruptState& irqStat
 void Timers::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_TIMER0))
+	{
 		m_timers[0].sync(timeKeeper, irqState);
+	}
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_TIMER1))
+	{
 		m_timers[1].sync(timeKeeper, irqState);
+	}
 	if (timeKeeper.needsSync(Peripheral::PERIPHERAL_TIMER2))
+	{
 		m_timers[2].sync(timeKeeper, irqState);
+	}
 }

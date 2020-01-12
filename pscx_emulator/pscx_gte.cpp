@@ -737,7 +737,7 @@ void Gte::setData(uint32_t reg, uint32_t value)
 
 		// If "value" is negative, we count the leading ones,
 		// otherwise we count the leading zeroes.
-		uint16_t leadingZerosCountValue = (value >> 31) & 1 ? ~value : value;
+		uint32_t leadingZerosCountValue = (value >> 31) & 1 ? ~value : value;
 		m_leadingZerosCountResult = calculateLeadingZeros(leadingZerosCountValue);
 
 		break;
@@ -1181,7 +1181,9 @@ int16_t Gte::truncatei32Toi16Saturate(const CommandConfig& config, uint8_t flag,
 {
 	int32_t minValue(0x0);
 	if (!config.isClampNegative())
+	{
 		minValue = SHRT_MIN;
+	}
 
 	if (value > SHRT_MAX)
 	{

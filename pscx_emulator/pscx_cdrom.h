@@ -118,6 +118,7 @@ struct CdRom
 		m_seekTargetPending(false),
 		m_readPosition(MinuteSecondFrame::createZeroTimestamp()),
 		m_doubleSpeed(false),
+		m_xaAdpcmToSpu(false),
 		m_rxActive(false),
 		m_rxIndex(0x0),
 		m_rxOffset(0x0),
@@ -276,6 +277,9 @@ private:
 	// True, if the drive is in double speed mode ( 2x, 150 sectors per
 	// second ), otherwise we're in the default 1x ( 75 sectors per second ).
 	bool m_doubleSpeed;
+
+	// If true, send ADPCM samples to spu
+	bool m_xaAdpcmToSpu;
 
 	// Sector in the RX buffer.
 	const XaSector* m_rxSector;
