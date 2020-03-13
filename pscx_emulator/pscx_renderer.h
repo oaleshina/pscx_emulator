@@ -3,62 +3,25 @@
 #include "SDL.h"
 #include "glad.h"
 
-// Position on VRAM
-struct Position
-{
-	Position(GLshort x, GLshort y) : m_x(x), m_y(y) {}
-
-	// Parse position from a GP0 parameter
-	static Position fromPacked(uint32_t value)
-	{
-		int16_t x = value;
-		int16_t y = value >> 16;
-
-		return Position(x, y);
-	}
-
-	GLshort getX() const { return m_x; }
-	GLshort getY() const { return m_y; }
-
-private:
-	GLshort m_x, m_y;
-};
-
-// RGB color
-struct Color
-{
-	Color(GLubyte r, GLubyte g, GLubyte b) : m_r(r), m_g(g), m_b(b) {}
-
-	// Parse color from a GP0 parameter
-	static Color fromPacked(uint32_t value)
-	{
-		uint8_t r = value;
-		uint8_t g = value >> 8;
-		uint8_t b = value >> 16;
-
-		return Color(r, g, b);
-	}
-
-private:
-	GLubyte m_r, m_g, m_b;
-};
+#include <vector>
 
 struct Vertex
 {
-	Vertex(Position position, Color color, float alpha = 1.0f) :
+	Vertex(const std::vector<int16_t>& position, const std::vector<uint8_t>& color, bool semiTrasparent) :
 		m_position(position),
 		m_color(color),
-		m_alpha(alpha)
-	{}
+		m_alpha(semiTrasparent ? 0.5f : 1.0f)
+	{
+	}
 
-	const Position& getPosition() const { return m_position; }
-	const Color& getColor() const { return m_color; }
+	const std::vector<int16_t>& getPosition() const { return m_position; }
+	const std::vector<uint8_t>& getColor() const { return m_color; }
 
 //private:
 	// Position in PlayStation VRAM coordinates
-	Position m_position;
+	std::vector<int16_t> m_position;
 	// RGB color, 8 bits per component
-	Color m_color;
+	std::vector<uint8_t> m_color;
 	// Vertex alpha value, used for blending
 	float m_alpha;
 };

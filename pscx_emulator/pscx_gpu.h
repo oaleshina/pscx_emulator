@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "pscx_common.h"
 #include "pscx_memory.h"
 #include "pscx_renderer.h"
@@ -189,6 +191,35 @@ enum Gp0Mode
 	GP0_MODE_IMAGE_LOAD
 };
 
+// Primitive texturing methods
+enum class TextureMethod
+{
+	// No texture
+	TEXTURE_METHOD_NONE,
+	// Raw texture
+	TEXTURE_METHOD_RAW,
+	// Texture + color blending
+	TEXTURE_METHOD_BLENDED
+};
+
+// Attributes of the various GP0 commands. Some attributes don't make
+// sense for certain commands but those will just be ignored by the 'parser_callback'
+struct Gp0Attributes
+{
+	// Build a vertex using the current attributes
+	Vertex buildVertex(const std::vector<int16_t>& position, const std::vector<uint8_t>& color)
+	{
+		return Vertex(position, color, m_semiTransparent);
+	}
+
+	// Method called when all parameters have been received
+	void (Gpu::*m_clbk)(void) = nullptr;
+	// True for semi-transparent primitives
+	bool m_semiTransparent{ false };
+	// True for textured primitives
+	TextureMethod textureMethod{ TextureMethod::TEXTURE_METHOD_NONE };
+};
+
 struct Gpu
 {
 	Gpu(HardwareType hardwareType) :
@@ -228,7 +259,7 @@ struct Gpu
 		//m_interrupt(false),
 		m_dmaDirection(DmaDirection::DMA_DIRECTION_OFF),
 		m_gp0WordsRemaining(0x0),
-		m_gp0CommandMethod(&Gpu::gp0Nop),
+		m_gp0Attributes{ &Gpu::gp0Nop },
 		m_gp0Mode(Gp0Mode::GP0_MODE_COMMAND),
 		m_gp0Interrupt(false),
 		m_vblankInterrupt(false),
@@ -289,6 +320,9 @@ struct Gpu
 	// Handle writes to the GP0 command register
 	void gp0(uint32_t value);
 
+	// Parse GP0 command and return its length in words and attributes
+	std::pair<uint32_t, Gp0Attributes> gp0Command(uint32_t gp0);
+
 	// Handle writes to the GP1 command register
 	void gp1(uint32_t value, TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState);
 
@@ -301,56 +335,38 @@ struct Gpu
 	// GP0(0x02): Fill rectangle
 	void gp0FillRect();
 
-	// GP0(0x20): Monochrome opaque triangle
-	void gp0TriangleMonoOpaque();
+	// Draw monochrome, untextured, unshaded triangle
+	void gp0MonochromeTriangle();
 
-	// GP0(0x28): Monochrome opaque quadrilateral
-	void gp0QuadMonoOpaque();
+	// Draw an untextured, unshaded quad
+	void gp0MonochromeQuad();
 
-	// GP0(0x2a): Monochrome semi transparent
-	void gp0QuadMonoSemiTransparent();
+	// Draw a textured unshaded triangle
+	void gp0TexturedTriangle();
 
-	// GP0(0x2c): Textured-blended opaque quadrilateral
-	void gp0QuadTextureBlendOpaque();
+	// Draw a textured unshaded quad
+	void gp0TexturedQuad();
 
-	// GP0(0x2d): Raw textured opaque quadrilateral
-	void gp0QuadTextureRawOpaque();
+	// Draw an untextured shaded triangle
+	void gp0ShadedTriangle();
 
-	// GP0(0x2e): Textured-blended semi transparent quadrilateral
-	void gp0QuadTextureBlendSemiTransparent();
+	// Draw an untextured shaded quad
+	void gp0ShadedQuad();
 
-	// GP0(0x2f): Raw semi transparent quadrilateral
-	void gp0QuadTextureRawSemiTransparent();
+	// Draw a textured shaded triangle
+	void gp0TexturedShadedTriangle();
 
-	// GP0(0x30): Shaded opaque triangle
-	void gp0TriangleShadedOpaque();
+	// Draw a textured shaded quad
+	void gp0TexturedShadedQuad();
 
-	// GP0(0x34): Textured-blended opaque triangle
-	void gp0TriangleTextureBlendOpaque();
+	// Draw an untextured rectangle
+	void gp0MonochromeRect();
 
-	// GP0(0x36): Textured-blended semi transparent triangle
-	void gp0TriangleTextureBlendSemiTransparent();
+	// Draw a textured rectangle
+	void gp0TexturedRect();
 
-	// GP0(0x38): Shaded opaque quadrilateral
-	void gp0QuadShadedOpaque();
-
-	// GP(0x3c): Textured-blended shaded opaque quadrilateral
-	void gp0QuadShadedTextureBlendOpaque();
-
-	// GP0(0x3e): Textured-blended shaded transparent quadrilateral
-	void gp0QuadShadedTextureBlendTransparent();
-
-	// GP0(0x60): Opaque monochrome rectangle
-	void gp0RectOpaque();
-
-	// GP0(0x64): Opaque rectangle with texture blending
-	void gp0RectTextureBlendOpaque();
-
-	// GP0(0x65): Opaque rectangle with raw texture
-	void gp0RectTextureRawOpaque();
-
-	// GP0(0x7c): Textured-blended opaque 16x16 rectangle
-	void gp0RectTextureBlendOpaque16x16();
+	// Draw a 16x16 textured rectangle
+	void gp0TexturedRect16x16();
 
 	// GP0(0xa0): Image load
 	void gp0ImageLoad();
@@ -525,8 +541,8 @@ private:
 	// Remaining words for the current GP0 command
 	uint32_t m_gp0WordsRemaining;
 
-	// Pointer to the method implementing the current GP0 command
-	void (Gpu::*m_gp0CommandMethod)(void) = nullptr;
+	// Current GP0 command attributes
+	Gp0Attributes m_gp0Attributes;
 
 	// Current mode of the GP0 register
 	Gp0Mode m_gp0Mode;

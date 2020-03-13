@@ -156,6 +156,9 @@ T Spu::load(uint32_t offset)
 
 	size_t index = offset >> 1;
 
+	if (index >= 0x100)
+		return 0;
+
 	uint16_t shadowRegister = 0x0;
 	if (index < 0xc0)
 	{
