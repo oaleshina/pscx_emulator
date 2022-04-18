@@ -1,24 +1,7 @@
 #include <cassert>
-#include <tuple>
 
 #include "pscx_gpu.h"
 #include "pscx_cpu.h"
-
-// Parse a position as written in the GP0 register
-// Return position as an array of two int16_t's
-std::vector<int16_t> gp0Position(uint32_t position)
-{
-	return { static_cast<int16_t>(position), static_cast<int16_t>(position >> 16) };
-}
-
-// Parse a color as written in the GP0 register
-// Return colot as an array of three uint8_t's
-std::vector<uint8_t> gp0Color(uint32_t color)
-{
-	return { static_cast<uint8_t>(color),
-			 static_cast<uint8_t>(color >> 8),
-			 static_cast<uint8_t>(color >> 16) };
-}
 
 std::pair<uint16_t, uint16_t> Gpu::getVModeTimings() const
 {
@@ -352,7 +335,197 @@ void Gpu::gp0(uint32_t value)
 	if (m_gp0WordsRemaining == 0)
 	{
 		// We start a new GP0 command
-		std::tie(m_gp0WordsRemaining, m_gp0Attributes) = gp0Command(value);
+		uint32_t opcode = (value >> 24);
+
+		struct CommandParameters
+		{
+			uint32_t gp0WordsRemaining;
+			void(Gpu::*gp0CommandMethod)(void);
+		};
+
+		CommandParameters commandParameters;
+		switch (opcode)
+		{
+		case 0x0:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0Nop;
+			break;
+		}
+		case 0x01:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0ClearCache;
+			break;
+		}
+		case 0x02:
+		{
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0FillRect;
+			break;
+		}
+		case 0x20:
+		{
+			commandParameters.gp0WordsRemaining = 4;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleMonoOpaque;
+			break;
+		}
+		case 0x28:
+		{
+			commandParameters.gp0WordsRemaining = 5;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoOpaque;
+			break;
+		}
+		case 0x2a:
+		{
+			commandParameters.gp0WordsRemaining = 5;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadMonoSemiTransparent;
+			std::cout << "gp0QuadMonoSemiTransparent" << std::endl;
+			break;
+		}
+		case 0x2c:
+		{
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendOpaque;
+			break;
+		}
+		case 0x2d:
+		{
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawOpaque;
+			break;
+		}
+		case 0x2e:
+		{
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureBlendSemiTransparent;
+			std::cout << "gp0QuadTextureBlendSemiTransparent" << std::endl;
+			break;
+		}
+		case 0x2f:
+		{
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadTextureRawSemiTransparent;
+			break;
+		}
+		case 0x30:
+		{
+			commandParameters.gp0WordsRemaining = 6;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleShadedOpaque;
+			break;
+		}
+		case 0x34:
+		{
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleTextureBlendOpaque;
+			std::cout << "gp0TriangleTextureBlendOpaque" << std::endl;
+			break;
+		}
+		case 0x36:
+		{
+			commandParameters.gp0WordsRemaining = 9;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TriangleTextureBlendSemiTransparent;
+			break;
+		}
+		case 0x38:
+		{
+			commandParameters.gp0WordsRemaining = 8;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedOpaque;
+			break;
+		}
+		case 0x3c:
+		{
+			commandParameters.gp0WordsRemaining = 12;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedTextureBlendOpaque;
+			break;
+		}
+		case 0x3e:
+		{
+			commandParameters.gp0WordsRemaining = 12;
+			commandParameters.gp0CommandMethod = &Gpu::gp0QuadShadedTextureBlendTransparent;
+			break;
+		}
+		case 0x60:
+		{
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectOpaque;
+			break;
+		}
+		case 0x64:
+		{
+			commandParameters.gp0WordsRemaining = 4;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureBlendOpaque;
+			break;
+		}
+		case 0x65:
+		{
+			commandParameters.gp0WordsRemaining = 4;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureRawOpaque;
+			break;
+		}
+		case 0x7c:
+		{
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0RectTextureBlendOpaque16x16;
+			break;
+		}
+		case 0xa0:
+		{
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0ImageLoad;
+			break;
+		}
+		case 0xc0:
+		{
+			commandParameters.gp0WordsRemaining = 3;
+			commandParameters.gp0CommandMethod = &Gpu::gp0ImageStore;
+			break;
+		}
+		case 0xe1:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0DrawMode;
+			break;
+		}
+		case 0xe2:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0TextureWindow;
+			break;
+		}
+		case 0xe3:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0DrawingAreaTopLeft;
+			break;
+		}
+		case 0xe4:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0DrawingAreaBottomRight;
+			break;
+		}
+		case 0xe5:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0DrawingOffset;
+			break;
+		}
+		case 0xe6:
+		{
+			commandParameters.gp0WordsRemaining = 1;
+			commandParameters.gp0CommandMethod = &Gpu::gp0MaskBitSetting;
+			break;
+		}
+		default:
+		{
+			assert(("Unhandled GP0 command", false));
+		}
+		}
+
+		m_gp0WordsRemaining = commandParameters.gp0WordsRemaining;
+		m_gp0CommandMethod = commandParameters.gp0CommandMethod;
+
 		m_gp0Command.clear();
 	}
 
@@ -365,7 +538,7 @@ void Gpu::gp0(uint32_t value)
 		if (m_gp0WordsRemaining == 0)
 		{
 			// We have all the parameters, we can run the command
-			(this->*m_gp0Attributes.m_clbk)();
+			(this->*m_gp0CommandMethod)();
 		}
 		break;
 	case Gp0Mode::GP0_MODE_IMAGE_LOAD:
@@ -375,351 +548,6 @@ void Gpu::gp0(uint32_t value)
 			m_gp0Mode = Gp0Mode::GP0_MODE_COMMAND;
 		}
 	}
-}
-
-std::pair<uint32_t, Gp0Attributes> Gpu::gp0Command(uint32_t gp0)
-{
-	auto opcode = (gp0 >> 24);
-
-	struct CommandParameters
-	{
-		uint32_t wordsRemaining;
-		Gp0Attributes attributes;
-	} commandParameters;
-
-	switch (opcode)
-	{
-	case 0x0:
-	{
-		commandParameters = { 1, &Gpu::gp0Nop };
-		break;
-	}
-	case 0x01:
-	{
-		commandParameters = { 1, &Gpu::gp0ClearCache };
-		break;
-	}
-	case 0x02:
-	{
-		commandParameters = { 3, &Gpu::gp0FillRect };
-		break;
-	}
-	case 0x20:
-	{
-		commandParameters = { 4, Gp0Attributes {
-			&Gpu::gp0MonochromeTriangle,
-			false,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x22:
-	{
-		commandParameters = { 4, Gp0Attributes {
-			&Gpu::gp0MonochromeTriangle,
-			true,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x24:
-	{
-		commandParameters = { 7, Gp0Attributes {
-			&Gpu::gp0TexturedTriangle,
-			false,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x25:
-	{
-		commandParameters = { 7, Gp0Attributes {
-			&Gpu::gp0TexturedTriangle,
-			false,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0x26:
-	{
-		commandParameters = { 7, Gp0Attributes {
-			&Gpu::gp0TexturedTriangle,
-			true,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x27:
-	{
-		commandParameters = { 7, Gp0Attributes {
-			&Gpu::gp0TexturedTriangle,
-			true,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0x28:
-	{
-		commandParameters = { 5, Gp0Attributes {
-			&Gpu::gp0MonochromeQuad,
-			false,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x2a:
-	{
-		commandParameters = { 5, Gp0Attributes {
-			&Gpu::gp0MonochromeQuad,
-			true,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x2c:
-	{
-		commandParameters = { 9, Gp0Attributes {
-			&Gpu::gp0TexturedQuad,
-			false,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x2d:
-	{
-		commandParameters = { 9, Gp0Attributes {
-			&Gpu::gp0TexturedQuad,
-			false,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0x2e:
-	{
-		commandParameters = { 9, Gp0Attributes {
-			&Gpu::gp0TexturedQuad,
-			true,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x2f:
-	{
-		commandParameters = { 9, Gp0Attributes {
-			&Gpu::gp0TexturedQuad,
-			true,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0x30:
-	{
-		commandParameters = { 6, Gp0Attributes {
-			&Gpu::gp0ShadedTriangle,
-			false,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x32:
-	{
-		commandParameters = { 6, Gp0Attributes {
-			&Gpu::gp0ShadedTriangle,
-			true,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x34:
-	{
-		commandParameters = { 9, Gp0Attributes {
-			&Gpu::gp0TexturedShadedTriangle,
-			false,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x36:
-	{
-		commandParameters = { 9, Gp0Attributes {
-			&Gpu::gp0TexturedShadedTriangle,
-			true,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x38:
-	{
-		commandParameters = { 8, Gp0Attributes {
-			&Gpu::gp0ShadedQuad,
-			false,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x3a:
-	{
-		commandParameters = { 8, Gp0Attributes {
-			&Gpu::gp0ShadedQuad,
-			true,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x3c:
-	{
-		commandParameters = { 12, Gp0Attributes {
-			&Gpu::gp0TexturedShadedQuad,
-			false,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x3e:
-	{
-		commandParameters = { 12, Gp0Attributes {
-			&Gpu::gp0TexturedShadedQuad,
-			true,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x60:
-	{
-		commandParameters = { 3, Gp0Attributes {
-			&Gpu::gp0MonochromeRect,
-			false,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x62:
-	{
-		commandParameters = { 3, Gp0Attributes {
-			&Gpu::gp0MonochromeRect,
-			true,
-			TextureMethod::TEXTURE_METHOD_NONE }
-		};
-		break;
-	}
-	case 0x64:
-	{
-		commandParameters = { 4, Gp0Attributes {
-			&Gpu::gp0TexturedRect,
-			false,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x65:
-	{
-		commandParameters = { 4, Gp0Attributes {
-			&Gpu::gp0TexturedRect,
-			false,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0x66:
-	{
-		commandParameters = { 4, Gp0Attributes {
-			&Gpu::gp0TexturedRect,
-			true,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x67:
-	{
-		commandParameters = { 4, Gp0Attributes {
-			&Gpu::gp0TexturedRect,
-			true,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0x7c:
-	{
-		commandParameters = { 3, Gp0Attributes {
-			&Gpu::gp0TexturedRect16x16,
-			false,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x7d:
-	{
-		commandParameters = { 3, Gp0Attributes {
-			&Gpu::gp0TexturedRect16x16,
-			false,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0x7e:
-	{
-		commandParameters = { 3, Gp0Attributes {
-			&Gpu::gp0TexturedRect16x16,
-			true,
-			TextureMethod::TEXTURE_METHOD_BLENDED }
-		};
-		break;
-	}
-	case 0x7f:
-	{
-		commandParameters = { 3, Gp0Attributes {
-			&Gpu::gp0TexturedRect16x16,
-			true,
-			TextureMethod::TEXTURE_METHOD_RAW }
-		};
-		break;
-	}
-	case 0xa0:
-	{
-		commandParameters = { 3, &Gpu::gp0ImageLoad };
-		break;
-	}
-	case 0xc0:
-	{
-		commandParameters = { 3, &Gpu::gp0ImageStore };
-		break;
-	}
-	case 0xe1:
-	{
-		commandParameters = { 1, &Gpu::gp0DrawMode };
-		break;
-	}
-	case 0xe2:
-	{
-		commandParameters = { 1, &Gpu::gp0TextureWindow };
-		break;
-	}
-	case 0xe3:
-	{
-		commandParameters = { 1, &Gpu::gp0DrawingAreaTopLeft };
-		break;
-	}
-	case 0xe4:
-	{
-		commandParameters = { 1, &Gpu::gp0DrawingAreaBottomRight };
-		break;
-	}
-	case 0xe5:
-	{
-		commandParameters = { 1, &Gpu::gp0DrawingOffset };
-		break;
-	}
-	case 0xe6:
-	{
-		commandParameters = { 1, &Gpu::gp0MaskBitSetting };
-		break;
-	}
-	default:
-	{
-		assert(("Unhandled GP0 command", false));
-	}
-	}
-	return std::make_pair(commandParameters.wordsRemaining, commandParameters.attributes);
 }
 
 void Gpu::gp1(uint32_t value, TimeKeeper& timeKeeper, Timers& timers, InterruptState& irqState)
@@ -799,155 +627,247 @@ void Gpu::gp0ClearCache()
 
 void Gpu::gp0FillRect()
 {
-	auto topLeft = gp0Position(m_gp0Command[1]);
-	auto size = gp0Position(m_gp0Command[2]);
-	auto color = gp0Color(m_gp0Command[0]);
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[2]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(topLeft, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size[0]), topLeft[1] }, color),
-		m_gp0Attributes.buildVertex({ topLeft[0], (int16_t)(topLeft[1] + size[1]) }, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size[0]), int16_t(topLeft[1] + size[1]) }, color)
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
 	};
+
 	m_renderer.pushQuad(vertices);
 }
 
-void Gpu::gp0MonochromeTriangle()
+void Gpu::gp0TriangleMonoOpaque()
 {
-	auto color = gp0Color(m_gp0Command[0]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[2]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[3]), color)
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[2]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color)
 	};
+
 	m_renderer.pushTriangle(vertices);
 }
 
-void Gpu::gp0MonochromeQuad()
+void Gpu::gp0QuadMonoOpaque()
 {
-	auto color = gp0Color(m_gp0Command[0]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[2]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[3]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[4]), color)
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[2]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color),
+		Vertex(Position::fromPacked(m_gp0Command[4]), color)
 	};
+
 	m_renderer.pushQuad(vertices);
 }
 
-void Gpu::gp0TexturedTriangle()
+void Gpu::gp0QuadMonoSemiTransparent()
 {
-	auto color = gp0Color(m_gp0Command[0]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[3]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[5]), color)
+		Vertex(Position::fromPacked(m_gp0Command[1]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[2]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[4]), color, 0.5f)
 	};
-	m_renderer.pushTriangle(vertices);
+
+	m_renderer.pushQuad(vertices);
 }
 
-void Gpu::gp0TexturedQuad()
+void Gpu::gp0QuadTextureBlendOpaque()
+{
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0QuadTextureRawOpaque()
+{
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0QuadTextureBlendSemiTransparent()
+{
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color, 0.5f)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0QuadTextureRawSemiTransparent()
 {
 	// Using solid red color instead of textures
-	auto color = gp0Color(m_gp0Command[0]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[3]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[5]), color),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[7]), color)
+		Vertex(Position::fromPacked(m_gp0Command[1]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[3]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[5]), color, 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), color, 0.5f)
 	};
+
 	m_renderer.pushQuad(vertices);
 }
 
-void Gpu::gp0ShadedTriangle()
+void Gpu::gp0TriangleShadedOpaque()
 {
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), gp0Color(m_gp0Command[0])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[3]), gp0Color(m_gp0Command[2])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[5]), gp0Color(m_gp0Command[4]))
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[3]), Color::fromPacked(m_gp0Command[2])),
+		Vertex(Position::fromPacked(m_gp0Command[5]), Color::fromPacked(m_gp0Command[4]))
 	};
 
 	m_renderer.pushTriangle(vertices);
 }
 
-void Gpu::gp0ShadedQuad()
+void Gpu::gp0TriangleTextureBlendOpaque()
 {
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), gp0Color(m_gp0Command[0])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[3]), gp0Color(m_gp0Command[2])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[5]), gp0Color(m_gp0Command[4])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[7]), gp0Color(m_gp0Command[6]))
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3])),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]))
 	};
-	m_renderer.pushQuad(vertices);
-}
 
-void Gpu::gp0TexturedShadedTriangle()
-{
-	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), gp0Color(m_gp0Command[0])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[4]), gp0Color(m_gp0Command[3])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[7]), gp0Color(m_gp0Command[6]))
-	};
 	m_renderer.pushTriangle(vertices);
 }
 
-void Gpu::gp0TexturedShadedQuad()
+void Gpu::gp0TriangleTextureBlendSemiTransparent()
 {
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[1]), gp0Color(m_gp0Command[0])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[4]), gp0Color(m_gp0Command[3])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[7]), gp0Color(m_gp0Command[6])),
-		m_gp0Attributes.buildVertex(gp0Position(m_gp0Command[10]), gp0Color(m_gp0Command[9]))
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]), 0.5f)
 	};
+
+	m_renderer.pushTriangle(vertices);
+}
+
+void Gpu::gp0QuadShadedOpaque()
+{
+	Vertex vertices[] = {
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[3]), Color::fromPacked(m_gp0Command[2])),
+		Vertex(Position::fromPacked(m_gp0Command[5]), Color::fromPacked(m_gp0Command[4])),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]))
+	};
+
 	m_renderer.pushQuad(vertices);
 }
 
-void Gpu::gp0MonochromeRect()
+void Gpu::gp0QuadShadedTextureBlendOpaque()
 {
-	auto topLeft = gp0Position(m_gp0Command[1]);
-	auto size = gp0Position(m_gp0Command[2]);
-	auto color = gp0Color(m_gp0Command[0]);
-
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(topLeft, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size[0]), topLeft[1] }, color),
-		m_gp0Attributes.buildVertex({ topLeft[0], (int16_t)(topLeft[1] + size[1]) }, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size[0]), (int16_t)(topLeft[1] + size[1]) }, color)
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0])),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3])),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6])),
+		Vertex(Position::fromPacked(m_gp0Command[10]), Color::fromPacked(m_gp0Command[9]))
 	};
+
 	m_renderer.pushQuad(vertices);
 }
 
-void Gpu::gp0TexturedRect()
+void Gpu::gp0QuadShadedTextureBlendTransparent()
 {
-	auto topLeft = gp0Position(m_gp0Command[1]);
-	auto size = gp0Position(m_gp0Command[3]);
-	auto color = gp0Color(m_gp0Command[0]);
-
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(topLeft, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size[0]), topLeft[1] }, color),
-		m_gp0Attributes.buildVertex({ topLeft[0], (int16_t)(topLeft[1] + size[1]) }, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size[0]), (int16_t)(topLeft[1] + size[1]) }, color)
+		Vertex(Position::fromPacked(m_gp0Command[1]), Color::fromPacked(m_gp0Command[0]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[4]), Color::fromPacked(m_gp0Command[3]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[7]), Color::fromPacked(m_gp0Command[6]), 0.5f),
+		Vertex(Position::fromPacked(m_gp0Command[10]), Color::fromPacked(m_gp0Command[9]), 0.5f)
 	};
+
 	m_renderer.pushQuad(vertices);
 }
 
-void Gpu::gp0TexturedRect16x16()
+void Gpu::gp0RectOpaque()
 {
-	auto topLeft = gp0Position(m_gp0Command[1]);
-	auto size = 16;
-	auto color = gp0Color(m_gp0Command[0]);
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[2]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
 
 	Vertex vertices[] = {
-		m_gp0Attributes.buildVertex(topLeft, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size), topLeft[1] }, color),
-		m_gp0Attributes.buildVertex({ topLeft[0], (int16_t)(topLeft[1] + size) }, color),
-		m_gp0Attributes.buildVertex({ (int16_t)(topLeft[0] + size), (int16_t)(topLeft[1] + size) }, color)
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
 	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0RectTextureBlendOpaque()
+{
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[3]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0RectTextureRawOpaque()
+{
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Position size = Position::fromPacked(m_gp0Command[3]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + size.getY()), color),
+		Vertex(Position(topLeft.getX() + size.getX(), topLeft.getY() + size.getY()), color)
+	};
+
+	m_renderer.pushQuad(vertices);
+}
+
+void Gpu::gp0RectTextureBlendOpaque16x16()
+{
+	Position topLeft = Position::fromPacked(m_gp0Command[1]);
+	Color color = Color::fromPacked(m_gp0Command[0]);
+
+	Vertex vertices[] = {
+		Vertex(topLeft, color),
+		Vertex(Position(topLeft.getX() + 16, topLeft.getY()), color),
+		Vertex(Position(topLeft.getX(), topLeft.getY() + 16), color),
+		Vertex(Position(topLeft.getX() + 16, topLeft.getY() + 16), color)
+	};
+
 	m_renderer.pushQuad(vertices);
 }
 
