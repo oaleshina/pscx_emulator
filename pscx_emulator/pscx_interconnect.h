@@ -23,7 +23,7 @@ using namespace pscx_memory;
 // Global interconnect
 struct Interconnect
 {
-	Interconnect(Bios bios, HardwareType hardwareType, const Disc* disc);
+	Interconnect(const Bios& bios, HardwareType hardwareType, const Disc* disc);
 
 	template<typename T>
 	Instruction load(TimeKeeper& timeKeeper, uint32_t addr);
@@ -50,7 +50,7 @@ struct Interconnect
 
 	InterruptState getIrqState() const;
 
-	std::vector<Profile*> getPadProfiles();
+	std::vector<Profile*> getPadProfiles() const;
 
 private:
 	

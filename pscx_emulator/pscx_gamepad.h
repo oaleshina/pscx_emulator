@@ -80,7 +80,7 @@ struct GamePad
 	std::pair<uint8_t, bool> sendCommand(uint8_t cmd);
 
 	// Return a mutable reference to the underlying gamepad Profile
-	Profile& getProfile();
+	Profile* getProfile() const;
 
 private:
 	// Gamepad profile

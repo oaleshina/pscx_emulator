@@ -38,9 +38,9 @@ std::pair<uint8_t, bool> GamePad::sendCommand(uint8_t cmd)
 	return command;
 }
 
-Profile& GamePad::getProfile()
+Profile* GamePad::getProfile() const
 {
-	return *m_profile;
+	return m_profile;
 }
 
 // ********************** DisconnectedProfile implementation **********************

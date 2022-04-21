@@ -42,7 +42,7 @@ struct PadMemCard
 	void sync(TimeKeeper& timeKeeper, InterruptState& irqState);
 
 	// Return a mutable reference to the gamepad profiles being used.
-	std::vector<Profile*> getPadProfiles();
+	std::vector<Profile*> getPadProfiles() const;
 
 	void sendCommand(TimeKeeper& timeKeeper, uint8_t cmd);
 

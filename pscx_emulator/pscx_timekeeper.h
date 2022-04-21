@@ -92,8 +92,8 @@ struct FracCycles
 
 	static FracCycles fromF32(float value)
 	{
-		float precision = (float)(1UL << FracCycles::fracBits());
-		return (FracCycles)FracCycles(static_cast<Cycles>(value * precision));
+		uint64_t precision = 1ULL << FracCycles::fracBits();
+		return FracCycles(static_cast<Cycles>((double)value * precision));
 	}
 
 	static FracCycles fromCycles(Cycles value)
@@ -138,7 +138,7 @@ struct FracCycles
 	Cycles ceil() const
 	{
 		Cycles shift = FracCycles::fracBits();
-		Cycles align = (1 << shift) - 1;
+		Cycles align = (1ULL << shift) - 1;
 		return (m_cycles + align) >> shift;
 	}
 

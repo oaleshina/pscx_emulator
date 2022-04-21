@@ -132,7 +132,7 @@ struct Cpu
 	const uint32_t* getRegistersPtr() const;
 	const std::vector<uint32_t>& getInstructionsDump() const;
 
-	std::vector<Profile*> getPadProfiles();
+	std::vector<Profile*> getPadProfiles() const;
 
 private:
 	struct RegisterData

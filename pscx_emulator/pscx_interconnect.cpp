@@ -3,7 +3,7 @@
 
 #include "pscx_interconnect.h"
 
-Interconnect::Interconnect(Bios bios, HardwareType hardwareType, const Disc* disc) :
+Interconnect::Interconnect(const Bios& bios, HardwareType hardwareType, const Disc* disc) :
 	m_irqState(new InterruptState),
 	m_bios(new Bios(bios)),
 	m_ram(new Ram),
@@ -81,7 +81,7 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 		{
 			irqControlValue = m_irqState->getInterruptStatus();
 		}
-		else if (offset = 0x4)
+		else if (offset == 0x4)
 		{
 			irqControlValue = m_irqState->getInterruptMask();
 		}
@@ -562,7 +562,7 @@ InterruptState Interconnect::getIrqState() const
 	return *m_irqState;
 }
 
-std::vector<Profile*> Interconnect::getPadProfiles()
+std::vector<Profile*> Interconnect::getPadProfiles() const
 {
 	return m_padMemCard->getPadProfiles();
 }
