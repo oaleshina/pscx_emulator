@@ -186,7 +186,7 @@ void CdRom::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 {
 	Cycles delta = timeKeeper.sync(Peripheral::PERIPHERAL_CDROM);
 
-	CommandState newCommandState;
+	CommandState newCommandState{ CommandState::COMMAND_STATE_INVALID };
 	switch (m_commandState)
 	{
 	case CommandState::COMMAND_STATE_IDLE:
@@ -248,6 +248,7 @@ void CdRom::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	}
 	}
 
+	assert(("Invalid command state", newCommandState != CommandState::COMMAND_STATE_INVALID));
 	m_commandState = newCommandState;
 
 	// See if we have a read pending.
@@ -789,7 +790,7 @@ CommandState CdRom::ackGetId()
 {
 	if (m_disc)
 	{
-		uint8_t regionSymbol;
+		uint8_t regionSymbol{};
 		switch (m_disc->getRegion())
 		{
 		case Region::REGION_JAPAN:

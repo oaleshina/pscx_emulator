@@ -10,7 +10,7 @@ using namespace pscx_memory;
 // BIOS image
 struct Bios
 {
-	enum BiosState
+	enum class BiosState
 	{
 		BIOS_STATE_SUCCESS,
 		BIOS_STATE_INCORRECT_FILENAME,
@@ -22,7 +22,7 @@ struct Bios
 	std::vector<uint8_t> m_data;
 
 	// Load a BIOS image from the file that is located in 'path'
-	BiosState loadBios(std::string path);
+	BiosState loadBios(const std::string& path);
 
 	template<typename T>
 	T load(uint32_t offset) const;

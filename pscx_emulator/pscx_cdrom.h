@@ -11,7 +11,7 @@
 
 // Various IRQ codes used by the CDROM controller and their
 // signification.
-enum IrqCode
+enum class IrqCode
 {
 	// A CD sector has been read and is ready to be processed.
 	IRQ_CODE_SECTOR_READY = 1,
@@ -24,7 +24,7 @@ enum IrqCode
 };
 
 // CDROM controller state machine.
-enum CommandState
+enum class CommandState
 {
 	// Controller is idle.
 	COMMAND_STATE_IDLE,
@@ -45,7 +45,7 @@ enum CommandState
 };
 
 // CDROM data read state machine.
-enum ReadState
+enum class ReadState
 {
 	READ_STATE_IDLE,
 	// We're expection a sector
@@ -119,6 +119,7 @@ struct CdRom
 		m_readPosition(MinuteSecondFrame::createZeroTimestamp()),
 		m_doubleSpeed(false),
 		m_xaAdpcmToSpu(false),
+		m_rxSector(nullptr),
 		m_rxActive(false),
 		m_rxIndex(0x0),
 		m_rxOffset(0x0),

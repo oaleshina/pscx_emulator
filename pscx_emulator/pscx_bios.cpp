@@ -3,12 +3,12 @@
 #include <fstream>
 #include <iterator>
 
-Bios::BiosState Bios::loadBios(std::string path)
+Bios::BiosState Bios::loadBios(const std::string& path)
 {
 	std::basic_ifstream<uint8_t> biosFile(path, std::ios::in | std::ios::binary);
 
 	if (!biosFile.good())
-		return BIOS_STATE_INCORRECT_FILENAME;
+		return BiosState::BIOS_STATE_INCORRECT_FILENAME;
 
 	const uint32_t biosSize = 512 * 1024; // 512 kb
 
@@ -18,9 +18,9 @@ Bios::BiosState Bios::loadBios(std::string path)
 	biosFile.close();
 
 	if (m_data.size() != biosSize)
-		return BIOS_STATE_INVALID_BIOS_SIZE;
+		return BiosState::BIOS_STATE_INVALID_BIOS_SIZE;
 
-	return BIOS_STATE_SUCCESS;
+	return BiosState::BIOS_STATE_SUCCESS;
 }
 
 template<> uint32_t Bios::load<uint32_t>(uint32_t offset) const

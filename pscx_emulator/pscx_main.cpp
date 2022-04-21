@@ -191,7 +191,7 @@ static void handleKeyboard(Profile* pad, SDL_Keycode keyCode, ButtonState state)
 	pad->setButtonState(button, state);
 }
 
-static void handleController(Profile* pad, SDL_ControllerButtonEvent& buttonEvent, ButtonState state)
+static void handleController(Profile* pad, const SDL_ControllerButtonEvent& buttonEvent, ButtonState state)
 {
 	// Map the playstation controller on the xbox360 one
 	Button button;
@@ -265,7 +265,7 @@ static void updateControllerAxis(Profile* pad, SDL_JoyAxisEvent& joyAxisEvent)
 }
 
 // Handle SDL events
-static Action handleEvents(SDL_Event& event, Cpu& cpu)
+static Action handleEvents(SDL_Event& event, const Cpu& cpu)
 {
 	while (SDL_PollEvent(&event))
 	{
@@ -350,10 +350,10 @@ int main(int argc, char** argv)
 
 	switch (state)
 	{
-	case Bios::BIOS_STATE_INCORRECT_FILENAME:
+	case Bios::BiosState::BIOS_STATE_INCORRECT_FILENAME:
 		std::cout << "Can't find location of the bios " << biosPath << std::endl;
 		return EXIT_FAILURE;
-	case Bios::BIOS_STATE_INVALID_BIOS_SIZE:
+	case Bios::BiosState::BIOS_STATE_INVALID_BIOS_SIZE:
 		std::cout << "Invalid BIOS size " << biosPath << std::endl;
 		return EXIT_FAILURE;
 	}

@@ -35,7 +35,7 @@ struct XaSector
 	// Return payload data byte at "index".
 	uint8_t getDataByte(uint16_t index) const;
 
-	enum XaSectorStatus
+	enum class XaSectorStatus
 	{
 		XA_SECTOR_STATUS_OK,
 		XA_SECTOR_STATUS_INVALID_DATA,
@@ -95,7 +95,7 @@ struct Disc
 {
 	Disc(std::ifstream&& file, Region region);
 
-	enum DiscStatus
+	enum class DiscStatus
 	{
 		DISC_STATUS_OK,
 		DISC_STATUS_INVALID_PATH,

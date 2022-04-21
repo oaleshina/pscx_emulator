@@ -14,7 +14,7 @@ const std::vector<uint32_t>& Cpu::getInstructionsDump() const
 	return m_debugInstructions;
 }
 
-std::vector<Profile*> Cpu::getPadProfiles()
+std::vector<Profile*> Cpu::getPadProfiles() const
 {
 	return m_inter.getPadProfiles();
 }

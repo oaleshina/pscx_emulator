@@ -183,9 +183,9 @@ void PadMemCard::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	}
 }
 
-std::vector<Profile*> PadMemCard::getPadProfiles()
+std::vector<Profile*> PadMemCard::getPadProfiles() const
 {
-	std::vector<Profile*> padProfiles{ &m_pad1.getProfile(), &m_pad2.getProfile() };
+	std::vector<Profile*> padProfiles{ m_pad1.getProfile(), m_pad2.getProfile() };
 	return padProfiles;
 }
 
