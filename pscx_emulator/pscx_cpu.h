@@ -40,7 +40,7 @@ struct Cpu
 		m_outRegs[0] = 0x0;
 	}
 
-	enum InstructionType
+	enum class InstructionType
 	{
 		INSTRUCTION_TYPE_LUI,
 		INSTRUCTION_TYPE_ORI,

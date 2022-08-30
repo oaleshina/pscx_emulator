@@ -10,7 +10,7 @@
 struct Gpu;
 
 // Various synchronization modes when the timer is not in free-run
-enum SyncTimer
+enum class SyncTimer
 {
 	// For timer 1/2: Pause during H/VBlank. For timer 3: Stop counter
 	SYNC_TIMER_PAUSE = 0,

@@ -33,7 +33,7 @@ Clock ClockSource::clock(Peripheral instance) const
 		}
 	};
 	
-	Clock clock;
+	Clock clock{};
 	switch (instance)
 	{
 	case Peripheral::PERIPHERAL_TIMER0:
@@ -146,7 +146,7 @@ void Timer::sync(TimeKeeper& timeKeeper, InterruptState& irqState)
 	m_counter = (uint16_t)count;
 	if ((m_wrapIrq && overflow) || (m_targetIrq && targetPassed))
 	{
-		Interrupt interrupt;
+		Interrupt interrupt{ Interrupt::INTERRUPT_NONE };
 		switch (m_instance)
 		{
 		case Peripheral::PERIPHERAL_TIMER0:

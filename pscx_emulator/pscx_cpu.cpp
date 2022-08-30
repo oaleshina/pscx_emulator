@@ -70,7 +70,7 @@ Cpu::InstructionType Cpu::decodeAndExecute(const Instruction& instruction)
 	// Simulate instruction execution time.
 	m_timeKeeper.tick(1);
 
-	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
+	InstructionType instructionType{ InstructionType::INSTRUCTION_TYPE_UNKNOWN };
 
 	switch (instruction.getInstructionCode())
 	{
@@ -309,16 +309,16 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	{
 		// PC is not correctly aligned !
 		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
-		return INSTRUCTION_TYPE_UNALIGNED;
+		return InstructionType::INSTRUCTION_TYPE_UNALIGNED;
 	}
 
 	// Fetch instruction at PC
 	//Instruction instruction = load<uint32_t>(m_pc);
 	Instruction instruction = fetchInstruction();
 	Instruction::InstructionStatus instructionStatus = instruction.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
 
 	// Increment next PC to point to the next instruction.
 	// All instructions are 32 bit long.
@@ -329,8 +329,8 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	m_delaySlot = m_branch;
 	m_branch = false;
 
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	// Execute the pending load ( if any, otherwise it will load $zero which is a NOP )
 	// setRegisterValue works only on m_outRegs so this operation won't be visible by the next instruction
@@ -340,12 +340,12 @@ Cpu::InstructionType Cpu::runNextInstuction()
 	// We reset the load to target register 0 for the next instruction
 	m_load = RegisterData(RegisterIndex(0x0), 0x0);
 
-	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
+	InstructionType instructionType{ InstructionType::INSTRUCTION_TYPE_UNKNOWN };
 	// Check for pending interrupts
 	if (m_cop0.isIrqActive(m_inter.getIrqState()))
 	{
 		exception(Exception::EXCEPTION_INTERRUPT);
-		instructionType = INSTRUCTION_TYPE_EXCEPTION_INTERRUPT;
+		instructionType = InstructionType::INSTRUCTION_TYPE_EXCEPTION_INTERRUPT;
 	}
 	else
 	{
@@ -423,13 +423,13 @@ Cpu::InstructionType Cpu::opcodeLUI(const Instruction& instruction)
 {
 	// Low 16 bits are set to 0
 	setRegisterValue(instruction.getRegisterTargetIndex(), instruction.getImmediateValue() << 16);
-	return INSTRUCTION_TYPE_LUI;
+	return InstructionType::INSTRUCTION_TYPE_LUI;
 }
 
 Cpu::InstructionType Cpu::opcodeORI(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterTargetIndex(), instruction.getImmediateValue() | getRegisterValue(instruction.getRegisterSourceIndex()));
-	return INSTRUCTION_TYPE_ORI;
+	return InstructionType::INSTRUCTION_TYPE_ORI;
 }
 
 Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
@@ -447,46 +447,46 @@ Cpu::InstructionType Cpu::opcodeSW(const Instruction& instruction)
 	else
 	{
 		exception(Exception::EXCEPTION_STORE_ADDRESS_ERROR);
-		return INSTRUCTION_TYPE_UNALIGNED;
+		return InstructionType::INSTRUCTION_TYPE_UNALIGNED;
 	}
 
-	return INSTRUCTION_TYPE_SW;
+	return InstructionType::INSTRUCTION_TYPE_SW;
 }
 
 Cpu::InstructionType Cpu::opcodeSLL(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(instruction.getRegisterTargetIndex()) << instruction.getShiftImmediateValue());
-	return INSTRUCTION_TYPE_SLL;
+	return InstructionType::INSTRUCTION_TYPE_SLL;
 }
 
 Cpu::InstructionType Cpu::opcodeADDIU(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterTargetIndex(), getRegisterValue(instruction.getRegisterSourceIndex()) + instruction.getSignExtendedImmediateValue());
-	return INSTRUCTION_TYPE_ADDIU;
+	return InstructionType::INSTRUCTION_TYPE_ADDIU;
 }
 
 Cpu::InstructionType Cpu::opcodeJ(const Instruction& instruction)
 {
 	m_nextPc = (m_pc & 0xf0000000) | (instruction.getJumpTargetValue() << 2);
 	m_branch = true;
-	return INSTRUCTION_TYPE_J;
+	return InstructionType::INSTRUCTION_TYPE_J;
 }
 
 Cpu::InstructionType Cpu::opcodeOR(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(instruction.getRegisterSourceIndex()) | getRegisterValue(instruction.getRegisterTargetIndex()));
-	return INSTRUCTION_TYPE_OR;
+	return InstructionType::INSTRUCTION_TYPE_OR;
 }
 
 Cpu::InstructionType Cpu::opcodeAND(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(instruction.getRegisterSourceIndex()) & getRegisterValue(instruction.getRegisterTargetIndex()));
-	return INSTRUCTION_TYPE_AND;
+	return InstructionType::INSTRUCTION_TYPE_AND;
 }
 
 Cpu::InstructionType Cpu::opcodeCOP0(const Instruction& instruction)
 {
-	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
+	InstructionType instructionType{ InstructionType::INSTRUCTION_TYPE_UNKNOWN };
 
 	switch (instruction.getCopOpcodeValue())
 	{
@@ -548,7 +548,7 @@ Cpu::InstructionType Cpu::opcodeMTC0(const Instruction& instruction)
 		LOG("Unhandled cop0 register 0x" << std::hex << cop0Register);
 	}
 
-	return INSTRUCTION_TYPE_MTC0;
+	return InstructionType::INSTRUCTION_TYPE_MTC0;
 }
 
 Cpu::InstructionType Cpu::opcodeMFC0(const Instruction& instruction)
@@ -574,7 +574,7 @@ Cpu::InstructionType Cpu::opcodeMFC0(const Instruction& instruction)
 		LOG("Unhandled read from cop0Register 0x" << std::hex << cop0Register);
 	}
 
-	return INSTRUCTION_TYPE_MFC0;
+	return InstructionType::INSTRUCTION_TYPE_MFC0;
 }
 
 // Branch to immediate value "offset"
@@ -591,7 +591,7 @@ Cpu::InstructionType Cpu::opcodeBNE(const Instruction& instruction)
 	if (getRegisterValue(instruction.getRegisterSourceIndex()) != getRegisterValue(instruction.getRegisterTargetIndex()))
 		branch(instruction.getSignExtendedImmediateValue());
 
-	return INSTRUCTION_TYPE_BNE;
+	return InstructionType::INSTRUCTION_TYPE_BNE;
 }
 
 Cpu::InstructionType Cpu::opcodeADDI(const Instruction& instruction)
@@ -606,14 +606,14 @@ Cpu::InstructionType Cpu::opcodeADDI(const Instruction& instruction)
 	{
 		LOG("ADDI overflow");
 		exception(Exception::EXCEPTION_OVERFLOW);
-		return INSTRUCTION_TYPE_OVERFLOW;
+		return InstructionType::INSTRUCTION_TYPE_OVERFLOW;
 	}
 	else
 	{
 		setRegisterValue(instruction.getRegisterTargetIndex(), uint32_t(registerSourceValue + signExtendedImmediateValue));
 	}
 
-	return INSTRUCTION_TYPE_ADDI;
+	return InstructionType::INSTRUCTION_TYPE_ADDI;
 }
 
 Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
@@ -629,11 +629,11 @@ Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 	{
 		Instruction instructionLoaded = load<uint32_t>(addr);
 		Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-		if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-			instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-			return INSTRUCTION_TYPE_UNKNOWN;
-		if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-			return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+		if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+			instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+			return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+		if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+			return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 		// Put the load in the delay slot
 		m_load = RegisterData(registerTargetIndex, instructionLoaded.getInstructionOpcode());
@@ -641,10 +641,10 @@ Cpu::InstructionType Cpu::opcodeLW(const Instruction& instruction)
 	else
 	{
 		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
-		return INSTRUCTION_TYPE_UNALIGNED;
+		return InstructionType::INSTRUCTION_TYPE_UNALIGNED;
 	}
 
-	return INSTRUCTION_TYPE_LW;
+	return InstructionType::INSTRUCTION_TYPE_LW;
 }
 
 Cpu::InstructionType Cpu::opcodeSLTU(const Instruction& instruction)
@@ -655,7 +655,7 @@ Cpu::InstructionType Cpu::opcodeSLTU(const Instruction& instruction)
 	uint32_t registerValueComparison = getRegisterValue(registerSourceIndex) < getRegisterValue(registerTargetIndex);
 
 	setRegisterValue(instruction.getRegisterDestinationIndex(), registerValueComparison);
-	return INSTRUCTION_TYPE_SLTU;
+	return InstructionType::INSTRUCTION_TYPE_SLTU;
 }
 
 Cpu::InstructionType Cpu::opcodeADDU(const Instruction& instruction)
@@ -664,7 +664,7 @@ Cpu::InstructionType Cpu::opcodeADDU(const Instruction& instruction)
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerSourceIndex) + getRegisterValue(registerTargetIndex));
-	return INSTRUCTION_TYPE_ADDU;
+	return InstructionType::INSTRUCTION_TYPE_ADDU;
 }
 
 Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
@@ -682,10 +682,10 @@ Cpu::InstructionType Cpu::opcodeSH(const Instruction& instruction)
 	else
 	{
 		exception(Exception::EXCEPTION_STORE_ADDRESS_ERROR);
-		return INSTRUCTION_TYPE_UNALIGNED;
+		return InstructionType::INSTRUCTION_TYPE_UNALIGNED;
 	}
 
-	return INSTRUCTION_TYPE_SH;
+	return InstructionType::INSTRUCTION_TYPE_SH;
 }
 
 Cpu::InstructionType Cpu::opcodeJAL(const Instruction& instruction)
@@ -701,7 +701,7 @@ Cpu::InstructionType Cpu::opcodeJAL(const Instruction& instruction)
 
 	m_branch = true;
 
-	return INSTRUCTION_TYPE_JAL;
+	return InstructionType::INSTRUCTION_TYPE_JAL;
 }
 
 Cpu::InstructionType Cpu::opcodeANDI(const Instruction& instruction)
@@ -710,7 +710,7 @@ Cpu::InstructionType Cpu::opcodeANDI(const Instruction& instruction)
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
 	setRegisterValue(registerTargetIndex, getRegisterValue(registerSourceIndex) & instruction.getImmediateValue());
-	return INSTRUCTION_TYPE_ANDI;
+	return InstructionType::INSTRUCTION_TYPE_ANDI;
 }
 
 Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
@@ -722,7 +722,7 @@ Cpu::InstructionType Cpu::opcodeSB(const Instruction& instruction)
 
 	store<uint8_t>(addr, getRegisterValue(registerTargetIndex));
 
-	return INSTRUCTION_TYPE_SB;
+	return InstructionType::INSTRUCTION_TYPE_SB;
 }
 
 Cpu::InstructionType Cpu::opcodeJR(const Instruction& instruction)
@@ -730,7 +730,7 @@ Cpu::InstructionType Cpu::opcodeJR(const Instruction& instruction)
 	//m_pc = getRegisterValue(instruction.getRegisterSourceIndex());
 	m_nextPc = getRegisterValue(instruction.getRegisterSourceIndex());
 	m_branch = true;
-	return INSTRUCTION_TYPE_JR;
+	return InstructionType::INSTRUCTION_TYPE_JR;
 }
 
 Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
@@ -742,16 +742,16 @@ Cpu::InstructionType Cpu::opcodeLB(const Instruction& instruction)
 
 	Instruction instructionLoaded = load<uint8_t>(addr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	int8_t register8Bit = (uint8_t)instructionLoaded.getInstructionOpcode();
 	m_load = RegisterData(registerTargetIndex, (uint32_t)register8Bit);
 
-	return INSTRUCTION_TYPE_LB;
+	return InstructionType::INSTRUCTION_TYPE_LB;
 }
 
 Cpu::InstructionType Cpu::opcodeBEQ(const Instruction& instruction)
@@ -759,7 +759,7 @@ Cpu::InstructionType Cpu::opcodeBEQ(const Instruction& instruction)
 	if (getRegisterValue(instruction.getRegisterSourceIndex()) == getRegisterValue(instruction.getRegisterTargetIndex()))
 		branch(instruction.getSignExtendedImmediateValue());
 
-	return INSTRUCTION_TYPE_BEQ;
+	return InstructionType::INSTRUCTION_TYPE_BEQ;
 }
 
 Cpu::InstructionType Cpu::opcodeADD(const Instruction& instruction)
@@ -772,14 +772,14 @@ Cpu::InstructionType Cpu::opcodeADD(const Instruction& instruction)
 	{
 		LOG("ADD overflow");
 		exception(Exception::EXCEPTION_OVERFLOW);
-		return INSTRUCTION_TYPE_OVERFLOW;
+		return InstructionType::INSTRUCTION_TYPE_OVERFLOW;
 	}
 	else
 	{
 		setRegisterValue(instruction.getRegisterDestinationIndex(), uint32_t(registerSourceValue + registerTargetValue));
 	}
 
-	return INSTRUCTION_TYPE_ADD;
+	return InstructionType::INSTRUCTION_TYPE_ADD;
 }
 
 Cpu::InstructionType Cpu::opcodeBGTZ(const Instruction& instruction)
@@ -791,7 +791,7 @@ Cpu::InstructionType Cpu::opcodeBGTZ(const Instruction& instruction)
 	if (registerSourceValue > 0)
 		branch(signExtendedImmediateValue);
 
-	return INSTRUCTION_TYPE_BGTZ;
+	return InstructionType::INSTRUCTION_TYPE_BGTZ;
 }
 
 Cpu::InstructionType Cpu::opcodeBLEZ(const Instruction& instruction)
@@ -803,7 +803,7 @@ Cpu::InstructionType Cpu::opcodeBLEZ(const Instruction& instruction)
 	if (registerSourceValue <= 0)
 		branch(signExtendedImmediateValue);
 
-	return INSTRUCTION_TYPE_BLEZ;
+	return InstructionType::INSTRUCTION_TYPE_BLEZ;
 }
 
 Cpu::InstructionType Cpu::opcodeLBU(const Instruction& instruction)
@@ -815,15 +815,15 @@ Cpu::InstructionType Cpu::opcodeLBU(const Instruction& instruction)
 
 	Instruction instructionLoaded = load<uint8_t>(addr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	m_load = RegisterData(registerTargetIndex, instructionLoaded.getInstructionOpcode());
 
-	return INSTRUCTION_TYPE_LBU;
+	return InstructionType::INSTRUCTION_TYPE_LBU;
 }
 
 Cpu::InstructionType Cpu::opcodeJALR(const Instruction& instruction)
@@ -837,7 +837,7 @@ Cpu::InstructionType Cpu::opcodeJALR(const Instruction& instruction)
 
 	m_branch = true;
 
-	return INSTRUCTION_TYPE_JALR;
+	return InstructionType::INSTRUCTION_TYPE_JALR;
 }
 
 Cpu::InstructionType Cpu::opcodeBXX(const Instruction& instruction)
@@ -867,7 +867,7 @@ Cpu::InstructionType Cpu::opcodeBXX(const Instruction& instruction)
 		branch(signExtendedImmediateValue);
 	}
 	
-	return INSTRUCTION_TYPE_BXX;
+	return InstructionType::INSTRUCTION_TYPE_BXX;
 }
 
 Cpu::InstructionType Cpu::opcodeSLTI(const Instruction& instruction)
@@ -877,7 +877,7 @@ Cpu::InstructionType Cpu::opcodeSLTI(const Instruction& instruction)
 
 	setRegisterValue(instruction.getRegisterTargetIndex(), registerSourceValue < signExtendedImmediateValue);
 
-	return INSTRUCTION_TYPE_SLTI;
+	return InstructionType::INSTRUCTION_TYPE_SLTI;
 }
 
 Cpu::InstructionType Cpu::opcodeSUBU(const Instruction& instruction)
@@ -887,7 +887,7 @@ Cpu::InstructionType Cpu::opcodeSUBU(const Instruction& instruction)
 
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerSourceIndex) - getRegisterValue(registerTargetIndex));
 
-	return INSTRUCTION_TYPE_SUBU;
+	return InstructionType::INSTRUCTION_TYPE_SUBU;
 }
 
 Cpu::InstructionType Cpu::opcodeSRA(const Instruction& instruction)
@@ -896,7 +896,7 @@ Cpu::InstructionType Cpu::opcodeSRA(const Instruction& instruction)
 
 	setRegisterValue(instruction.getRegisterDestinationIndex(), (uint32_t)rightShiftedValue);
 
-	return INSTRUCTION_TYPE_SRA;
+	return InstructionType::INSTRUCTION_TYPE_SRA;
 }
 
 Cpu::InstructionType Cpu::opcodeDIV(const Instruction& instruction)
@@ -922,25 +922,25 @@ Cpu::InstructionType Cpu::opcodeDIV(const Instruction& instruction)
 		m_lo = numerator / denominator;
 	}
 
-	return INSTRUCTION_TYPE_DIV;
+	return InstructionType::INSTRUCTION_TYPE_DIV;
 }
 
 Cpu::InstructionType Cpu::opcodeMFLO(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterDestinationIndex(), m_lo);
-	return INSTRUCTION_TYPE_MFLO;
+	return InstructionType::INSTRUCTION_TYPE_MFLO;
 }
 
 Cpu::InstructionType Cpu::opcodeSRL(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(instruction.getRegisterTargetIndex()) >> instruction.getShiftImmediateValue());
-	return INSTRUCTION_TYPE_SRL;
+	return InstructionType::INSTRUCTION_TYPE_SRL;
 }
 
 Cpu::InstructionType Cpu::opcodeSLTIU(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterTargetIndex(), getRegisterValue(instruction.getRegisterSourceIndex()) < instruction.getSignExtendedImmediateValue());
-	return INSTRUCTION_TYPE_SLTIU;
+	return InstructionType::INSTRUCTION_TYPE_SLTIU;
 }
 
 Cpu::InstructionType Cpu::opcodeDIVU(const Instruction& instruction)
@@ -960,19 +960,19 @@ Cpu::InstructionType Cpu::opcodeDIVU(const Instruction& instruction)
 		m_lo = numerator / denominator;
 	}
 
-	return INSTRUCTION_TYPE_DIVU;
+	return InstructionType::INSTRUCTION_TYPE_DIVU;
 }
 
 Cpu::InstructionType Cpu::opcodeSLT(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterDestinationIndex(), (int32_t)getRegisterValue(instruction.getRegisterSourceIndex()) < (int32_t)getRegisterValue(instruction.getRegisterTargetIndex()));
-	return INSTRUCTION_TYPE_SLT;
+	return InstructionType::INSTRUCTION_TYPE_SLT;
 }
 
 Cpu::InstructionType Cpu::opcodeMFHI(const Instruction& instruction)
 {
 	setRegisterValue(instruction.getRegisterDestinationIndex(), m_hi);
-	return INSTRUCTION_TYPE_MFHI;
+	return InstructionType::INSTRUCTION_TYPE_MFHI;
 }
 
 void Cpu::exception(Exception cause)
@@ -987,20 +987,21 @@ void Cpu::exception(Exception cause)
 
 Cpu::InstructionType Cpu::opcodeSYSCALL(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	exception(Exception::EXCEPTION_SYSCALL);
-	return INSTRUCTION_TYPE_SYSCALL;
+	return InstructionType::INSTRUCTION_TYPE_SYSCALL;
 }
 
 Cpu::InstructionType Cpu::opcodeMTLO(const Instruction& instruction)
 {
 	m_lo = getRegisterValue(instruction.getRegisterSourceIndex());
-	return INSTRUCTION_TYPE_MTLO;
+	return InstructionType::INSTRUCTION_TYPE_MTLO;
 }
 
 Cpu::InstructionType Cpu::opcodeMTHI(const Instruction& instruction)
 {
 	m_hi = getRegisterValue(instruction.getRegisterSourceIndex());
-	return INSTRUCTION_TYPE_MTHI;
+	return InstructionType::INSTRUCTION_TYPE_MTHI;
 }
 
 Cpu::InstructionType Cpu::opcodeRFE(const Instruction& instruction)
@@ -1011,12 +1012,12 @@ Cpu::InstructionType Cpu::opcodeRFE(const Instruction& instruction)
 	if ((instruction.getInstructionOpcode() & 0x3f) != 0b010000)
 	{
 		LOG("Invalid cop 0 instruction:" << std::hex << instruction.getInstructionOpcode());
-		return INSTRUCTION_TYPE_UNKNOWN;
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
 	}
 
 	m_cop0.returnFromException();
 
-	return INSTRUCTION_TYPE_RFE;
+	return InstructionType::INSTRUCTION_TYPE_RFE;
 }
 
 Cpu::InstructionType Cpu::opcodeLHU(const Instruction& instruction)
@@ -1032,10 +1033,10 @@ Cpu::InstructionType Cpu::opcodeLHU(const Instruction& instruction)
 	else
 	{
 		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
-		return INSTRUCTION_TYPE_UNALIGNED;
+		return InstructionType::INSTRUCTION_TYPE_UNALIGNED;
 	}
 
-	return INSTRUCTION_TYPE_LHU;
+	return InstructionType::INSTRUCTION_TYPE_LHU;
 }
 
 Cpu::InstructionType Cpu::opcodeSLLV(const Instruction& instruction)
@@ -1045,7 +1046,7 @@ Cpu::InstructionType Cpu::opcodeSLLV(const Instruction& instruction)
 
 	// Shift amount is truncated to 5 bits
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerTargetIndex) << (getRegisterValue(registerSourceIndex) & 0x1f));
-	return INSTRUCTION_TYPE_SLLV;
+	return InstructionType::INSTRUCTION_TYPE_SLLV;
 }
 
 Cpu::InstructionType Cpu::opcodeLH(const Instruction& instruction)
@@ -1059,17 +1060,17 @@ Cpu::InstructionType Cpu::opcodeLH(const Instruction& instruction)
 	// Cast as i16 to force sign extension
 	Instruction instructionLoaded = load<uint16_t>(addr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	int16_t instructionOpcode = instructionLoaded.getInstructionOpcode();
 
 	// Put the load in the delay slot
 	m_load = RegisterData(registerTargetIndex, instructionOpcode);
-	return INSTRUCTION_TYPE_LH;
+	return InstructionType::INSTRUCTION_TYPE_LH;
 }
 
 Cpu::InstructionType Cpu::opcodeNOR(const Instruction& instruction)
@@ -1078,7 +1079,7 @@ Cpu::InstructionType Cpu::opcodeNOR(const Instruction& instruction)
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
 	setRegisterValue(instruction.getRegisterDestinationIndex(), ~(getRegisterValue(registerSourceIndex) | getRegisterValue(registerTargetIndex)));
-	return INSTRUCTION_TYPE_NOR;
+	return InstructionType::INSTRUCTION_TYPE_NOR;
 }
 
 Cpu::InstructionType Cpu::opcodeSRAV(const Instruction& instruction)
@@ -1088,7 +1089,7 @@ Cpu::InstructionType Cpu::opcodeSRAV(const Instruction& instruction)
 
 	// Shift amount is truncated to 5 bits
 	setRegisterValue(instruction.getRegisterDestinationIndex(), ((int32_t)getRegisterValue(registerTargetIndex)) >> (getRegisterValue(registerSourceIndex) & 0x1f));
-	return INSTRUCTION_TYPE_SRAV;
+	return InstructionType::INSTRUCTION_TYPE_SRAV;
 }
 
 Cpu::InstructionType Cpu::opcodeSRLV(const Instruction& instruction)
@@ -1098,7 +1099,7 @@ Cpu::InstructionType Cpu::opcodeSRLV(const Instruction& instruction)
 
 	// Shift amount is truncated to 5 bits
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerTargetIndex) >> (getRegisterValue(registerSourceIndex) & 0x1f));
-	return INSTRUCTION_TYPE_SRLV;
+	return InstructionType::INSTRUCTION_TYPE_SRLV;
 }
 
 Cpu::InstructionType Cpu::opcodeMULTU(const Instruction& instruction)
@@ -1114,7 +1115,7 @@ Cpu::InstructionType Cpu::opcodeMULTU(const Instruction& instruction)
 	m_hi = (multResult >> 32);
 	m_lo = (uint32_t)multResult;
 
-	return INSTRUCTION_TYPE_MULTU;
+	return InstructionType::INSTRUCTION_TYPE_MULTU;
 }
 
 Cpu::InstructionType Cpu::opcodeXOR(const Instruction& instruction)
@@ -1123,13 +1124,14 @@ Cpu::InstructionType Cpu::opcodeXOR(const Instruction& instruction)
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
 	setRegisterValue(instruction.getRegisterDestinationIndex(), getRegisterValue(registerSourceIndex) ^ getRegisterValue(registerTargetIndex));
-	return INSTRUCTION_TYPE_XOR;
+	return InstructionType::INSTRUCTION_TYPE_XOR;
 }
 
 Cpu::InstructionType Cpu::opcodeBREAK(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	exception(Exception::EXCEPTION_BREAK);
-	return INSTRUCTION_TYPE_BREAK;
+	return InstructionType::INSTRUCTION_TYPE_BREAK;
 }
 
 Cpu::InstructionType Cpu::opcodeMULT(const Instruction& instruction)
@@ -1145,7 +1147,7 @@ Cpu::InstructionType Cpu::opcodeMULT(const Instruction& instruction)
 	m_hi = (multResult >> 32);
 	m_lo = (uint32_t)multResult;
 
-	return INSTRUCTION_TYPE_MULT;
+	return InstructionType::INSTRUCTION_TYPE_MULT;
 }
 
 Cpu::InstructionType Cpu::opcodeSUB(const Instruction& instruction)
@@ -1168,7 +1170,7 @@ Cpu::InstructionType Cpu::opcodeSUB(const Instruction& instruction)
 	setRegisterValue(instruction.getRegisterDestinationIndex(), registerSourceValue - registerTargetValue);
 	//}
 
-	return INSTRUCTION_TYPE_SUB;
+	return InstructionType::INSTRUCTION_TYPE_SUB;
 }
 
 Cpu::InstructionType Cpu::opcodeXORI(const Instruction& instruction)
@@ -1177,18 +1179,19 @@ Cpu::InstructionType Cpu::opcodeXORI(const Instruction& instruction)
 	RegisterIndex registerTargetIndex = instruction.getRegisterTargetIndex();
 
 	setRegisterValue(registerTargetIndex, getRegisterValue(registerSourceIndex) ^ instruction.getImmediateValue());
-	return INSTRUCTION_TYPE_XORI;
+	return InstructionType::INSTRUCTION_TYPE_XORI;
 }
 
 Cpu::InstructionType Cpu::opcodeCOP1(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_COP1;
+	return InstructionType::INSTRUCTION_TYPE_COP1;
 }
 
 Cpu::InstructionType Cpu::opcodeCOP2(const Instruction& instruction)
 {
-	InstructionType instructionType = INSTRUCTION_TYPE_UNKNOWN;
+	InstructionType instructionType{ InstructionType::INSTRUCTION_TYPE_UNKNOWN };
 
 	uint32_t copOpcode = instruction.getCopOpcodeValue();
 
@@ -1196,7 +1199,7 @@ Cpu::InstructionType Cpu::opcodeCOP2(const Instruction& instruction)
 	{
 		// GTE command.
 		m_gte.command(instruction.getInstructionOpcode());
-		instructionType = INSTRUCTION_TYPE_GTE_COMMAND;
+		instructionType = InstructionType::INSTRUCTION_TYPE_GTE_COMMAND;
 	}
 	else
 	{
@@ -1237,13 +1240,14 @@ Cpu::InstructionType Cpu::opcodeCTC2(const Instruction& instruction)
 	uint32_t copRegister = instruction.getRegisterDestinationIndex().getRegisterIndex();
 
 	m_gte.setControl(copRegister, getRegisterValue(cpuRegisterIndex));
-	return INSTRUCTION_TYPE_CTC2;
+	return InstructionType::INSTRUCTION_TYPE_CTC2;
 }
 
 Cpu::InstructionType Cpu::opcodeCOP3(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_COP3;
+	return InstructionType::INSTRUCTION_TYPE_COP3;
 }
 
 Cpu::InstructionType Cpu::opcodeLWL(const Instruction& instruction)
@@ -1263,11 +1267,11 @@ Cpu::InstructionType Cpu::opcodeLWL(const Instruction& instruction)
 
 	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	uint32_t alignedWord = instructionLoaded.getInstructionOpcode();
 
@@ -1292,7 +1296,7 @@ Cpu::InstructionType Cpu::opcodeLWL(const Instruction& instruction)
 
 	// Put the load in the delay slot
 	m_load = RegisterData(registerTargetIndex, alignedValue);
-	return INSTRUCTION_TYPE_LWL;
+	return InstructionType::INSTRUCTION_TYPE_LWL;
 }
 
 Cpu::InstructionType Cpu::opcodeLWR(const Instruction& instruction)
@@ -1312,11 +1316,11 @@ Cpu::InstructionType Cpu::opcodeLWR(const Instruction& instruction)
 
 	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	uint32_t alignedWord = instructionLoaded.getInstructionOpcode();
 
@@ -1341,7 +1345,7 @@ Cpu::InstructionType Cpu::opcodeLWR(const Instruction& instruction)
 
 	// Put the load in the delay slot
 	m_load = RegisterData(registerTargetIndex, alignedValue);
-	return INSTRUCTION_TYPE_LWR;
+	return InstructionType::INSTRUCTION_TYPE_LWR;
 }
 
 Cpu::InstructionType Cpu::opcodeSWL(const Instruction& instruction)
@@ -1358,11 +1362,11 @@ Cpu::InstructionType Cpu::opcodeSWL(const Instruction& instruction)
 	// Load the current value for the aligned word at the target address
 	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	uint32_t currentMem = instructionLoaded.getInstructionOpcode();
 
@@ -1384,7 +1388,7 @@ Cpu::InstructionType Cpu::opcodeSWL(const Instruction& instruction)
 	}
 
 	store<uint32_t>(alignedAddr, mem);
-	return INSTRUCTION_TYPE_SWL;
+	return InstructionType::INSTRUCTION_TYPE_SWL;
 }
 
 Cpu::InstructionType Cpu::opcodeSWR(const Instruction& instruction)
@@ -1401,11 +1405,11 @@ Cpu::InstructionType Cpu::opcodeSWR(const Instruction& instruction)
 	// Load the current value for the aligned word at the target address
 	Instruction instructionLoaded = load<uint32_t>(alignedAddr);
 	Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-		instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-		return INSTRUCTION_TYPE_UNKNOWN;
-	if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-		return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+		instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+		return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+	if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+		return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 	uint32_t currentMem = instructionLoaded.getInstructionOpcode();
 
@@ -1427,21 +1431,23 @@ Cpu::InstructionType Cpu::opcodeSWR(const Instruction& instruction)
 	}
 
 	store<uint32_t>(alignedAddr, mem);
-	return INSTRUCTION_TYPE_SWR;
+	return InstructionType::INSTRUCTION_TYPE_SWR;
 }
 
 Cpu::InstructionType Cpu::opcodeLWC0(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	// Not supported by this coprocessor
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_LWC0;
+	return InstructionType::INSTRUCTION_TYPE_LWC0;
 }
 
 Cpu::InstructionType Cpu::opcodeLWC1(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	// Not supported by this coprocessor
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_LWC1;
+	return InstructionType::INSTRUCTION_TYPE_LWC1;
 }
 
 Cpu::InstructionType Cpu::opcodeLWC2(const Instruction& instruction)
@@ -1453,11 +1459,11 @@ Cpu::InstructionType Cpu::opcodeLWC2(const Instruction& instruction)
 	{
 		Instruction instructionLoaded = load<uint32_t>(addr);
 		Instruction::InstructionStatus instructionStatus = instructionLoaded.getInstructionStatus();
-		if (instructionStatus == Instruction::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
-			instructionStatus == Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH)
-			return INSTRUCTION_TYPE_UNKNOWN;
-		if (instructionStatus == Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
-			return INSTRUCTION_TYPE_NOT_IMPLEMENTED;
+		if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNALIGNED_ACCESS ||
+			instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH)
+			return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
+		if (instructionStatus == Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED)
+			return InstructionType::INSTRUCTION_TYPE_NOT_IMPLEMENTED;
 
 		// Send to coprocessor.
 		m_gte.setData(instruction.getRegisterTargetIndex().getRegisterIndex(), instructionLoaded.getInstructionOpcode());
@@ -1467,28 +1473,31 @@ Cpu::InstructionType Cpu::opcodeLWC2(const Instruction& instruction)
 		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
 	}
 
-	return INSTRUCTION_TYPE_LWC2;
+	return InstructionType::INSTRUCTION_TYPE_LWC2;
 }
 
 Cpu::InstructionType Cpu::opcodeLWC3(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	// Not supported by this coprocessor
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_LWC3;
+	return InstructionType::INSTRUCTION_TYPE_LWC3;
 }
 
 Cpu::InstructionType Cpu::opcodeSWC0(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	// Not supported by this coprocessor
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_SWC0;
+	return InstructionType::INSTRUCTION_TYPE_SWC0;
 }
 
 Cpu::InstructionType Cpu::opcodeSWC1(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	// Not supported by this coprocessor
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_SWC1;
+	return InstructionType::INSTRUCTION_TYPE_SWC1;
 }
 
 Cpu::InstructionType Cpu::opcodeSWC2(const Instruction& instruction)
@@ -1502,39 +1511,41 @@ Cpu::InstructionType Cpu::opcodeSWC2(const Instruction& instruction)
 	else
 		exception(Exception::EXCEPTION_LOAD_ADDRESS_ERROR);
 
-	return INSTRUCTION_TYPE_SWC2;
+	return InstructionType::INSTRUCTION_TYPE_SWC2;
 }
 
 Cpu::InstructionType Cpu::opcodeSWC3(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	// Not supported by this coprocessor
 	exception(Exception::EXCEPTION_COPROCESSOR_ERROR);
-	return INSTRUCTION_TYPE_SWC3;
+	return InstructionType::INSTRUCTION_TYPE_SWC3;
 }
 
 Cpu::InstructionType Cpu::opcodeMFC2(const Instruction& instruction)
 {
 	m_load = RegisterData(instruction.getRegisterTargetIndex(), m_gte.getData(instruction.getRegisterDestinationIndex().getRegisterIndex()));
-	return INSTRUCTION_TYPE_MFC2;
+	return InstructionType::INSTRUCTION_TYPE_MFC2;
 }
 
 Cpu::InstructionType Cpu::opcodeCFC2(const Instruction& instruction)
 {
 	m_load = RegisterData(instruction.getRegisterTargetIndex(), m_gte.getControl(instruction.getRegisterDestinationIndex().getRegisterIndex()));
-	return INSTRUCTION_TYPE_CFC2;
+	return InstructionType::INSTRUCTION_TYPE_CFC2;
 }
 
 Cpu::InstructionType Cpu::opcodeMTC2(const Instruction& instruction)
 {
 	m_gte.setData(instruction.getRegisterDestinationIndex().getRegisterIndex(), getRegisterValue(instruction.getRegisterTargetIndex()));
-	return INSTRUCTION_TYPE_MTC2;
+	return InstructionType::INSTRUCTION_TYPE_MTC2;
 }
 
 Cpu::InstructionType Cpu::opcodeIllegal(const Instruction& instruction)
 {
+	PCSX_UNUSED(instruction);
 	LOG("Illegal instruction 0x" << std::hex << instruction.getInstructionOpcode());
 	exception(Exception::EXCEPTION_UNKNOWN_INSTRUCTION);
-	return INSTRUCTION_TYPE_UNKNOWN;
+	return InstructionType::INSTRUCTION_TYPE_UNKNOWN;
 }
 
 uint32_t Cpu::getRegisterValue(RegisterIndex registerIndex) const

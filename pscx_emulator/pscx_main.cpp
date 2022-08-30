@@ -126,7 +126,7 @@ static SDL_GameController* initializeSDL2Controllers()
 			SDL_GameController* controller = SDL_GameControllerOpen(joystickId);
 			if (controller)
 			{
-				LOG("Successfully opened " << SDL_GameControllerName(joystick));
+				LOG("Successfully opened " << SDL_GameControllerName(controller));
 				initializedController = controller;
 				break;
 			}

@@ -7,7 +7,7 @@ using namespace pscx_memory;
 
 struct Instruction
 {
-	enum InstructionStatus
+	enum class InstructionStatus
 	{
 		INSTRUCTION_STATUS_LOADED_SUCCESSFULLY,
 		INSTRUCTION_STATUS_NOT_IMPLEMENTED,
@@ -16,8 +16,8 @@ struct Instruction
 		INSTRUCTION_STATUS_COUNT
 	};
 
-	Instruction() : m_instruction(0x0), m_instructionStatus(INSTRUCTION_STATUS_LOADED_SUCCESSFULLY) {};
-	Instruction(uint32_t opcode, InstructionStatus instructionStatus = INSTRUCTION_STATUS_LOADED_SUCCESSFULLY) : m_instruction(opcode), m_instructionStatus(instructionStatus) {}
+	Instruction() : m_instruction(0x0), m_instructionStatus(InstructionStatus::INSTRUCTION_STATUS_LOADED_SUCCESSFULLY) {};
+	Instruction(uint32_t opcode, InstructionStatus instructionStatus = InstructionStatus::INSTRUCTION_STATUS_LOADED_SUCCESSFULLY) : m_instruction(opcode), m_instructionStatus(instructionStatus) {}
 
 	// Return bits [31:26] of the instruction
 	uint32_t getInstructionCode() const;

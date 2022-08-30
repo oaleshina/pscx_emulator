@@ -80,15 +80,15 @@ uint32_t Channel::getDmaChannelControlRegister() const
 {
 	uint32_t channelControlRegister = 0;
 
-	channelControlRegister |= m_direction;
-	channelControlRegister |= ((uint32_t)m_step) << 1;
-	channelControlRegister |= ((uint32_t)m_chop) << 8;
-	channelControlRegister |= ((uint32_t)m_sync) << 9;
-	channelControlRegister |= ((uint32_t)m_chopDmaWindowSize) << 16;
-	channelControlRegister |= ((uint32_t)m_chopCpuWindowSize) << 20;
-	channelControlRegister |= ((uint32_t)m_enable) << 24;
-	channelControlRegister |= ((uint32_t)m_trigger) << 28;
-	channelControlRegister |= ((uint32_t)m_dummy) << 29;
+	channelControlRegister |= static_cast<uint32_t>(m_direction);
+	channelControlRegister |= static_cast<uint32_t>(m_step) << 1;
+	channelControlRegister |= static_cast<uint32_t>(m_chop) << 8;
+	channelControlRegister |= static_cast<uint32_t>(m_sync) << 9;
+	channelControlRegister |= static_cast<uint32_t>(m_chopDmaWindowSize) << 16;
+	channelControlRegister |= static_cast<uint32_t>(m_chopCpuWindowSize) << 20;
+	channelControlRegister |= static_cast<uint32_t>(m_enable) << 24;
+	channelControlRegister |= static_cast<uint32_t>(m_trigger) << 28;
+	channelControlRegister |= static_cast<uint32_t>(m_dummy) << 29;
 
 	return channelControlRegister;
 }
@@ -139,7 +139,7 @@ uint32_t Channel::getBlockControlRegister() const
 	uint32_t blockSize = m_blockSize;
 	uint32_t blockCount = m_blockCount;
 
-	return (blockSize << 16) | blockSize;
+	return (blockCount << 16) | blockSize;
 }
 
 void Channel::setBlockControlRegister(uint32_t value)

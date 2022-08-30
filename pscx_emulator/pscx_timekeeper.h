@@ -2,12 +2,13 @@
 
 #include <cstdint>
 #include <climits>
+#include <cassert>
 
 using Cycles = uint64_t;
 
 // List of all peripherals requiring a TimeSheet. The value of the
 // enum is used as the index in the table.
-enum Peripheral
+enum class Peripheral
 {
 	// Graphics Processing Unit
 	PERIPHERAL_GPU = 0,
@@ -19,6 +20,49 @@ enum Peripheral
 	// CD-ROM controller
 	PERIPHERAL_CDROM
 };
+
+inline uint64_t getPeripheralCode(Peripheral peripheral)
+{
+	uint64_t peripheralCode{ 0 };
+	switch (peripheral)
+	{
+	case Peripheral::PERIPHERAL_GPU:
+	{
+		peripheralCode = 0;
+		break;
+	}
+	case Peripheral::PERIPHERAL_TIMER0:
+	{
+		peripheralCode = 1;
+		break;
+	}
+	case Peripheral::PERIPHERAL_TIMER1:
+	{
+		peripheralCode = 2;
+		break;
+	}
+	case Peripheral::PERIPHERAL_TIMER2:
+	{
+		peripheralCode = 3;
+		break;
+	}
+	case Peripheral::PERIPHERAL_PAD_MEMCARD:
+	{
+		peripheralCode = 4;
+		break;
+	}
+	case Peripheral::PERIPHERAL_CDROM:
+	{
+		peripheralCode = 5;
+		break;
+	}
+	default:
+	{
+		assert(("Unknown Peripheral", false));
+	}
+	}
+	return peripheralCode;
+}
 
 // Struct used to keep track of individual peripherals
 struct TimeSheet

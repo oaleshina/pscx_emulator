@@ -6,7 +6,7 @@
 
 Matrix fromMatrixCommand(uint32_t command)
 {
-	Matrix matrix;
+	Matrix matrix{ Matrix::MATRIX_ROTATION };
 	switch ((command >> 17) & 3)
 	{
 	case 0:
@@ -27,7 +27,7 @@ Matrix fromMatrixCommand(uint32_t command)
 
 ControlVector fromControlVectorCommand(uint32_t command)
 {
-	ControlVector controlVector;
+	ControlVector controlVector{ ControlVector::CONTROL_VECTOR_TRANSLATION };
 	switch ((command >> 13) & 3)
 	{
 	case 0:

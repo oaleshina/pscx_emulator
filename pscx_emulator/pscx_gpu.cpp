@@ -343,7 +343,7 @@ void Gpu::gp0(uint32_t value)
 			void(Gpu::*gp0CommandMethod)(void);
 		};
 
-		CommandParameters commandParameters;
+		CommandParameters commandParameters{};
 		switch (opcode)
 		{
 		case 0x0:
@@ -902,6 +902,7 @@ void Gpu::gp0ImageStore()
 	uint32_t width = imageResolution & 0xffff;
 	uint32_t height = imageResolution >> 16;
 
+	PCSX_UNUSED(width, height);
 	LOG("Unhandled image store 0x" << width << " 0x" << height);
 }
 
@@ -1104,7 +1105,7 @@ void Gpu::gp1DisplayMode(uint32_t value, TimeKeeper& timeKeeper, InterruptState&
 
 	if (value & 0x80)
 	{
-		LOG("Unsupported display mode 0x" << std::hex << val);
+		LOG("Unsupported display mode 0x" << std::hex << value);
 	}
 
 	sync(timeKeeper, irqState);

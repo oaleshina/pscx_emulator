@@ -71,7 +71,7 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 
 	if (EXPANSION_2.contains(targetPeripheralAddress, offset))
 	{
-		return Instruction(~0, Instruction::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
+		return Instruction(~0, Instruction::InstructionStatus::INSTRUCTION_STATUS_NOT_IMPLEMENTED);
 	}
 
 	if (IRQ_CONTROL.contains(targetPeripheralAddress, offset))
@@ -119,7 +119,7 @@ Instruction Interconnect::load(TimeKeeper& timeKeeper, uint32_t addr)
 	}
 
 	LOG("Unhandled fetch32 at address 0x" << std::hex << addr);
-	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
+	return Instruction(~0, Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH);
 }
 
 template Instruction Interconnect::load<uint32_t>(TimeKeeper&, uint32_t);
@@ -552,7 +552,7 @@ Instruction Interconnect::loadInstruction(uint32_t pc)
 	}
 
 	LOG("Unhandled instruction load at address 0x" << std::hex << pc);
-	return Instruction(~0, Instruction::INSTRUCTION_STATUS_UNHANDLED_FETCH);
+	return Instruction(~0, Instruction::InstructionStatus::INSTRUCTION_STATUS_UNHANDLED_FETCH);
 }
 
 template Instruction Interconnect::loadInstruction<uint32_t>(uint32_t);

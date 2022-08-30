@@ -1,7 +1,9 @@
 #include "pscx_gamepad.h"
+#include "pscx_common.h"
 
 // ********************** GamePad implementation **********************
 GamePad::GamePad(Type padType) :
+	m_profile(nullptr),
 	m_seq(0x0),
 	m_active(true)
 {
@@ -46,12 +48,14 @@ Profile* GamePad::getProfile() const
 // ********************** DisconnectedProfile implementation **********************
 std::pair<uint8_t, bool> DisconnectedProfile::handleCommand(uint8_t seq, uint8_t cmd)
 {
-	// The bus is open, no respomse
+	PCSX_UNUSED(seq, cmd);
+	// The bus is open, no response
 	return std::make_pair(0xff, false);
 }
 
 void DisconnectedProfile::setButtonState(Button button, ButtonState state)
 {
+	PCSX_UNUSED(button, state);
 	// Dummy function
 }
 

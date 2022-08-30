@@ -1,4 +1,5 @@
 #include "pscx_bios.h"
+#include "pscx_common.h"
 
 #include <fstream>
 #include <iterator>
@@ -35,6 +36,7 @@ template<> uint32_t Bios::load<uint32_t>(uint32_t offset) const
 
 template<> uint16_t Bios::load<uint16_t>(uint32_t offset) const
 {
+	PCSX_UNUSED(offset);
 	return 0;
 }
 

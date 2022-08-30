@@ -10,7 +10,7 @@
 //const Cycles CLOCK_RATIO_FRAC = 0x10000;
 
 // Depth of the pixel values in a texture page
-enum TextureDepth
+enum class TextureDepth
 {
 	// 4 bits per pixel
 	TEXTURE_DEPTH_4_BIT,
@@ -23,7 +23,7 @@ enum TextureDepth
 };
 
 // Interlaced output splits each frame in two fields
-enum Field
+enum class Field
 {
 	// Top Field ( odd lines )
 	FIELD_TOP = 1,
@@ -97,7 +97,7 @@ struct HorizontalRes
 };
 
 // Video output vertical resolution
-enum VerticalRes
+enum class VerticalRes
 {
 	// 240 lines
 	VERTICAL_RES_240_LINES,
@@ -107,7 +107,7 @@ enum VerticalRes
 };
 
 // Video modes
-enum VMode
+enum class VMode
 {
 	// NTSC: 480i60Hz
 	VMODE_NTSC,
@@ -117,7 +117,7 @@ enum VMode
 };
 
 // Display area color depth
-enum DisplayDepth
+enum class DisplayDepth
 {
 	// 15 bits per pixel
 	DISPLAY_DEPTH_15_BITS,
@@ -127,7 +127,7 @@ enum DisplayDepth
 };
 
 // Requested DMA direction
-enum DmaDirection
+enum class DmaDirection
 {
 	DMA_DIRECTION_OFF,
 	DMA_DIRECTION_FIFO,
@@ -137,7 +137,7 @@ enum DmaDirection
 
 // There are a few hardware differences between PAL and NTSC consoles,
 // for instance runs slightly slower on PAL consoles.
-enum HardwareType
+enum class HardwareType
 {
 	HARDWARE_TYPE_NTSC,
 	HARDWARE_TYPE_PAL
@@ -180,7 +180,7 @@ private:
 };
 
 // Possible states for the GP0 command register
-enum Gp0Mode
+enum class Gp0Mode
 {
 	// Default mode: handling commands
 	GP0_MODE_COMMAND,

@@ -4,7 +4,7 @@
 #include "pscx_interrupts.h"
 
 // Exception types ( sd stored in the 'CAUSE' register )
-enum Exception
+enum class Exception
 {
 	// Interrupt Request
 	EXCEPTION_INTERRUPT = 0x0,

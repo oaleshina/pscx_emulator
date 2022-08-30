@@ -1,10 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <limits.h>
 
 // The Playstation supports 10 interrupts
 enum Interrupt
 {
+	// Incorrect interuption, in case if something goes wrong
+	INTERRUPT_NONE = INT_MIN,
+
 	// Display the vertical blanking
 	INTERRUPT_VBLANK = 0,
 
@@ -24,7 +28,7 @@ enum Interrupt
 	INTERRUPT_TIMER2 = 6,
 
 	// Gamepad and Memory Card controller interrupt
-	INTERRUPT_PAD_MEMCARD = 7
+	INTERRUPT_PAD_MEMCARD = 7,
 };
 
 struct InterruptState

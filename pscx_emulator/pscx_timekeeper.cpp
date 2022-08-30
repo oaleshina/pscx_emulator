@@ -33,13 +33,13 @@ void TimeKeeper::tick(Cycles cycles)
 
 Cycles TimeKeeper::sync(Peripheral who)
 {
-	return m_timesheets[who].sync(m_now);
+	return m_timesheets[getPeripheralCode(who)].sync(m_now);
 }
 
 void TimeKeeper::setNextSyncDelta(Peripheral who, Cycles delta)
 {
 	Cycles date = m_now + delta;
-	m_timesheets[who].setNextSync(date);
+	m_timesheets[getPeripheralCode(who)].setNextSync(date);
 
 	if (date < m_nextSync)
 	{
@@ -50,9 +50,9 @@ void TimeKeeper::setNextSyncDelta(Peripheral who, Cycles delta)
 void TimeKeeper::setNextSyncDeltaIfCloser(Peripheral who, Cycles delta)
 {
 	Cycles date = m_now + delta;
-	if (m_timesheets[who].getNextSync() > date)
+	if (m_timesheets[getPeripheralCode(who)].getNextSync() > date)
 	{
-		m_timesheets[who].setNextSync(date);
+		m_timesheets[getPeripheralCode(who)].setNextSync(date);
 	}
 }
 
@@ -60,7 +60,7 @@ void TimeKeeper::noSyncNeeded(Peripheral who)
 {
 	// Insted of sisabling the sync completely we can just use a distant date.
 	// Peripheral's syncs should be idempotent.
-	m_timesheets[who].setNextSync(ULLONG_MAX);
+	m_timesheets[getPeripheralCode(who)].setNextSync(ULLONG_MAX);
 }
 
 bool TimeKeeper::syncPending() const
@@ -70,7 +70,7 @@ bool TimeKeeper::syncPending() const
 
 bool TimeKeeper::needsSync(Peripheral who) const
 {
-	return m_timesheets[who].needsSync(m_now);
+	return m_timesheets[getPeripheralCode(who)].needsSync(m_now);
 }
 
 void TimeKeeper::updateSyncPending()

@@ -3,7 +3,7 @@
 #include <algorithm>
 
 // GamePad types supported by the emulator
-enum Type
+enum class Type
 {
 	// No gamepad connected
 	TYPE_DISCONNECTED,
@@ -29,7 +29,7 @@ enum Button
 	BUTTON_SQUARE = 15
 };
 
-enum ButtonState
+enum class ButtonState
 {
 	BUTTON_STATE_PRESSED,
 	BUTTON_STATE_RELEASED

@@ -9,14 +9,14 @@
 #include "pscx_interrupts.h"
 
 // Identifies the tagret of the serial communication, either the gamepad/memory card port 0 or 1.
-enum Target
+enum class Target
 {
 	TARGET_PAD_MEMCARD1 = 0,
 	TARGET_PAD_MEMCARD2 = 1
 };
 
 // Controller transaction state machine.
-enum BusState
+enum class BusState
 {
 	// Bus is idle.
 	BUS_STATE_IDLE,
