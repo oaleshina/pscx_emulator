@@ -23,45 +23,7 @@ enum class Peripheral
 
 inline uint64_t getPeripheralCode(Peripheral peripheral)
 {
-	uint64_t peripheralCode{ 0 };
-	switch (peripheral)
-	{
-	case Peripheral::PERIPHERAL_GPU:
-	{
-		peripheralCode = 0;
-		break;
-	}
-	case Peripheral::PERIPHERAL_TIMER0:
-	{
-		peripheralCode = 1;
-		break;
-	}
-	case Peripheral::PERIPHERAL_TIMER1:
-	{
-		peripheralCode = 2;
-		break;
-	}
-	case Peripheral::PERIPHERAL_TIMER2:
-	{
-		peripheralCode = 3;
-		break;
-	}
-	case Peripheral::PERIPHERAL_PAD_MEMCARD:
-	{
-		peripheralCode = 4;
-		break;
-	}
-	case Peripheral::PERIPHERAL_CDROM:
-	{
-		peripheralCode = 5;
-		break;
-	}
-	default:
-	{
-		assert(("Unknown Peripheral", false));
-	}
-	}
-	return peripheralCode;
+	return static_cast<uint64_t>(peripheral);
 }
 
 // Struct used to keep track of individual peripherals
